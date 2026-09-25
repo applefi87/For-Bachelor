@@ -25,10 +25,13 @@
     stats: {
       feeds: 0, pets: 0, worries: 0, breaths: 0, breeds: 0, hatched: 0,
       released: 0, events: 0, catches: 0, letters: 0, photos: 0, sleeps: 0, bubbles: 0,
+      rituals: 0, stepsDone: 0,
     },
     daily: { last: null, streak: 0, best: 0 },
     moods: {},
     released: [],
+    entries: [],
+    eco: { gifts: [], species: {}, lastReturn: 0 },
     settings: { music: true, sfx: true, volume: 0.8, mood: 'deep', sing: true, muted: false },
     tutorial: {},
     flags: {},

@@ -24,6 +24,7 @@
       this.lastBreed = data.lastBreed || 0;
       this.parents = data.parents || null;
       this.visitor = !!data.visitor;
+      this.origin = data.origin || null;
 
       this.x = data.x != null ? data.x * env.W : U.rand(env.W * 0.15, env.W * 0.85);
       this.y = data.y != null ? data.y * env.H : U.rand(env.H * 0.2, env.H * 0.65);
@@ -61,6 +62,7 @@
         born: this.born,
         lastBreed: this.lastBreed,
         parents: this.parents,
+        origin: this.origin,
         x: +(this.x / env.W).toFixed(3),
         y: +(this.y / env.H).toFixed(3),
       };

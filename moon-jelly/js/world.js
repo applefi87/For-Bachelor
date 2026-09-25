@@ -89,8 +89,8 @@
       this.H = H;
       this.dpr = dpr;
       this.unit = unit;
-      // 手機上底部選單比較高，海床要抬高一點才不會被擋住
-      this.floorY = H - Math.max(U.clamp(H * 0.11, 58, 112), W < 700 ? 116 : 0);
+      // 海床要高過底部選單，住在沙地上的生物才不會被擋住
+      this.floorY = H - Math.max(U.clamp(H * 0.11, 58, 112), 120);
       this.bg = this.renderBg();
       this.prevBg = null;
       this.fade = 1;

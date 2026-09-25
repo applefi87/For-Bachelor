@@ -89,6 +89,11 @@
       });
     }
 
+    /** 一道光從 (x0,y0) 飛到 (x1,y1)：變身後的心情去找牠的新家 */
+    trail(x0, y0, x1, y1, hue) {
+      this.add({ type: 'trail', x0, y0, x1, y1, x: x0, y: y0, life: 1.3, hue, arc: U.rand(-80, 80), hist: [] });
+    }
+
     /** 煩惱被吃掉時，字一個個散開變成光 */
     scatterText(x, y, str, hue) {
       const chars = Array.from(str).filter((c) => c.trim()).slice(0, 40);
@@ -144,6 +149,17 @@
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             break;
+          case 'trail': {
+            const k = U.easeInOut(Math.min(1, p.age / (p.life * 0.8)));
+            const mx = (p.x0 + p.x1) / 2 + p.arc;
+            const my = Math.min(p.y0, p.y1) - 60;
+            const a = 1 - k;
+            p.x = a * a * p.x0 + 2 * a * k * mx + k * k * p.x1;
+            p.y = a * a * p.y0 + 2 * a * k * my + k * k * p.y1;
+            p.hist.push(p.x, p.y);
+            if (p.hist.length > 36) p.hist.splice(0, 2);
+            break;
+          }
           case 'char': {
             const k = Math.exp(-1.6 * dt);
             p.vx *= k;
@@ -192,6 +208,14 @@
         } else if (p.type === 'char') {
           const a = t < 0.6 ? 1 : 1 - (t - 0.6) / 0.4;
           U.drawGlow(ctx, p.x, p.y, p.size * 3, p.hue, 0.8, 0.6, a * 0.6);
+        } else if (p.type === 'trail') {
+          const a = t < 0.85 ? 1 : 1 - (t - 0.85) / 0.15;
+          const h = p.hist;
+          for (let i = 0; i < h.length; i += 2) {
+            const k = i / h.length;
+            U.drawGlow(ctx, h[i], h[i + 1], 6 + 16 * k, p.hue, 0.8, 0.65, a * k * 0.7);
+          }
+          U.drawGlow(ctx, p.x, p.y, 40, p.hue, 0.8, 0.7, a);
         }
       }
       ctx.globalCompositeOperation = 'source-over';

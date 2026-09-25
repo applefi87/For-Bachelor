@@ -35,7 +35,7 @@
 
 <nav id="dock" class="dock" aria-label="主要功能">
   <button data-act="feed" data-icon="feed"><span class="lbl">餵食</span></button>
-  <button data-act="worry" data-icon="worry"><span class="lbl">煩惱</span></button>
+  <button data-act="worry" data-icon="heartsea"><span class="lbl">心情</span></button>
   <button data-act="breath" data-icon="breath"><span class="lbl">呼吸</span></button>
   <button data-act="codex" data-icon="codex"><span class="lbl">圖鑑</span></button>
   <button data-act="shop" data-icon="shop"><span class="lbl">商店</span></button>
@@ -83,6 +83,16 @@
   <button id="arrangeDone" class="btn sm">完成</button>
 </div>
 
+<section id="ritual" class="ritual" hidden role="dialog" aria-modal="true" aria-labelledby="ritualTitle">
+  <div class="ritual-card">
+    <header class="ritual-head">
+      <ol id="ritualSteps" class="ritual-steps" aria-label="步驟"></ol>
+      <button class="icon-btn sm" id="ritualClose" aria-label="先不要" data-icon="close"></button>
+    </header>
+    <div id="ritualBody" class="ritual-body"></div>
+  </div>
+</section>
+
 <div id="modal" class="modal" hidden><div id="modalCard" class="modal-card" role="dialog" aria-modal="true"></div></div>
 
 <section id="intro" class="intro-screen">
@@ -100,6 +110,7 @@
 <script src="js/util.js"></script>
 <script src="js/content.js"></script>
 <script src="js/genes.js"></script>
+<script src="js/feelings.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/world.js"></script>
@@ -107,8 +118,11 @@
 <script src="js/jelly.js"></script>
 <script src="js/polyp.js"></script>
 <script src="js/food.js"></script>
+<script src="js/creatures.js"></script>
 <script src="js/store.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/ritual.js"></script>
+<script src="js/tides.js"></script>
 <script src="js/game.js"></script>
 <script>MJ.Game.init();</script>
 </body>
