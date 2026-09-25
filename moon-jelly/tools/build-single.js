@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * 把 index.html、style.css 和 js/ 底下的腳本合成一個 HTML 檔，方便分享或放到任何地方。
+ * 把 index.html、css/ 底下的樣式和 js/ 底下的腳本合成一個 HTML 檔，方便分享或放到任何地方。
  *
  *   node tools/build-single.js dist/moon-jelly.html
  *   node tools/build-single.js out.html --fragment   （只輸出 <body> 內容，給會自己包外殼的平台用）
@@ -16,7 +16,9 @@ const fragment = args.includes('--fragment');
 const out = args.find((a) => !a.startsWith('--')) || path.join(root, 'dist', 'moon-jelly.html');
 
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const css = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
+// 樣式分成幾個檔案（css/base.css、sea.css、paper.css、ritual.css），照 index.html 裡的順序接起來
+const cssLinks = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
+const css = cssLinks.map((href) => '/* ' + href + ' */\n' + fs.readFileSync(path.join(root, href), 'utf8')).join('\n');
 
 const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
 const js = scripts
@@ -43,7 +45,7 @@ if (fragment) {
     body + '\n<script>\n' + js + '\n' + boot + '\n</script>\n';
 } else {
   result = html
-    .replace('<link rel="stylesheet" href="style.css">', '<style>\n' + css + '\n</style>')
+    .replace(/(<link rel="stylesheet" href="css\/[^"]+">\s*)+/, '<style>\n' + css + '\n</style>\n')
     .replace(/(<script src="[^"]+"><\/script>\s*)+<script>MJ\.Game\.init\(\);<\/script>/, '<script>\n' + js + '\n' + boot + '\n</script>');
 }
 
