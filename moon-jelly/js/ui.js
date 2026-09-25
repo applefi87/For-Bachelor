@@ -1,0 +1,1323 @@
+/* 海月水母館 — 介面：抽屜、對話框、提示、名片、圖鑑、商店 */
+(function (MJ) {
+  'use strict';
+
+  const U = MJ.U;
+  const Gn = MJ.Genes;
+  const C = MJ.Content;
+  const A = MJ.Audio;
+  const esc = U.escape;
+
+  /* ---------- 圖示（手繪線條，24×24） ---------- */
+  const ICONS = {
+    feed: '<circle cx="7" cy="5.5" r="1.5"/><circle cx="14.5" cy="8" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="16.5" cy="15" r="1.5"/><circle cx="11" cy="19" r="1.5"/>',
+    worry: '<path d="M5 7.5c0-1.4 1.1-2.5 2.5-2.5h9c1.4 0 2.5 1.1 2.5 2.5v6c0 1.4-1.1 2.5-2.5 2.5H11l-4 3.5V16h0.5"/><path d="M9 9.5h6M9 12.5h4"/>',
+    breath: '<circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6" opacity=".65"/><circle cx="12" cy="12" r="9.5" opacity=".35"/>',
+    codex: '<path d="M5 5a1.8 1.8 0 0 1 1.8-1.8H19v14.6H6.8A1.8 1.8 0 0 0 5 19.6z"/><path d="M5 19.6a1.8 1.8 0 0 0 1.8 1.8H19"/><path d="M9.5 8.5a2.5 2.5 0 0 1 5 0z"/><path d="M10.5 8.5v3M12 8.5v3.5M13.5 8.5v3"/>',
+    shop: '<path d="M12 20.5c-4.6 0-8.3-3.2-8.3-8.3a8.3 8.3 0 0 1 16.6 0c0 5.1-3.7 8.3-8.3 8.3z"/><path d="M12 20.5L6.2 6.6M12 20.5L9.2 4.3M12 20.5V3.9M12 20.5l2.8-16.2M12 20.5l5.8-13.9"/>',
+    more: '<circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/>',
+    soundOn: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/>',
+    soundOff: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
+    settings: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+    letter: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/>',
+    camera: '<rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.6"/><path d="M8.5 7l1.6-2.8h3.8L15.5 7"/>',
+    moon: '<path d="M19.5 14.5A7.8 7.8 0 1 1 9.5 4.5a6.2 6.2 0 0 0 10 10z"/>',
+    close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    back: '<path d="M14.5 5.5L8 12l6.5 6.5"/>',
+    jelly: '<path d="M5 12a7 7 0 0 1 14 0z"/><path d="M8.5 12c0 3-1 5-1.2 8M12 12v8.5M15.5 12c0 3 1 5 1.2 8"/>',
+    trophy: '<path d="M12 3.8l2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z"/>',
+    diary: '<rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/><circle cx="9" cy="14.5" r="1"/><circle cx="14" cy="14.5" r="1"/>',
+    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.4"/>',
+    heart: '<path d="M12 19s-7-4.4-7-9.3A3.9 3.9 0 0 1 12 7.4a3.9 3.9 0 0 1 7 2.3C19 14.6 12 19 12 19z"/>',
+    arrange: '<path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/>',
+  };
+  const icon = (n, cls = 'i') => '<svg class="' + cls + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
+
+  const SOLFEGE = ['Do', 'Re', 'Mi', 'Sol', 'La'];
+  const noteName = (g) => {
+    const idx = Gn.noteOf(g) + 3;
+    const reg = idx < 5 ? '低音' : idx < 10 ? '中音' : '高音';
+    return reg + ' ' + SOLFEGE[((idx % 5) + 5) % 5];
+  };
+  const dateStr = (ts) => {
+    const d = new Date(ts);
+    return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
+  };
+  const starsHTML = (n) => '<span class="stars" aria-label="稀有度 ' + n + ' 顆星">' + '★'.repeat(n) + '<span class="off">' + '★'.repeat(5 - n) + '</span></span>';
+  const colorCss = (g, l = 70) => 'hsl(' + Math.round(g.hue) + ',' + Math.round(Math.max(g.sat, 0.15) * 100) + '%,' + l + '%)';
+
+  const UI = { sheetKind: null };
+  let Game;
+  const $ = (id) => document.getElementById(id);
+
+  /* ================= 初始化 ================= */
+
+  UI.init = (game) => {
+    Game = game;
+    UI.el = {
+      hud: $('hud'),
+      light: $('lightNum'),
+      rate: $('lightRate'),
+      letterBtn: $('btnLetter'),
+      soundBtn: $('btnSound'),
+      dock: $('dock'),
+      toasts: $('toasts'),
+      hint: $('hint'),
+      sheet: $('sheet'),
+      sheetTitle: $('sheetTitle'),
+      sheetBody: $('sheetBody'),
+      sheetBack: $('sheetBack'),
+      modal: $('modal'),
+      modalCard: $('modalCard'),
+      feedPop: $('feedPop'),
+      intro: $('intro'),
+    };
+
+    document.querySelectorAll('[data-icon]').forEach((el) => {
+      el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon));
+    });
+    UI.updateSound();
+
+    UI.el.dock.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-act]');
+      if (!b) return;
+      A.click();
+      const act = b.dataset.act;
+      if (act === 'feed') return UI.toggleFeed();
+      UI.closePopovers();
+      if (act === 'worry') UI.worryModal();
+      else if (act === 'breath') UI.openSheet('breath');
+      else if (act === 'codex') UI.openSheet('codex');
+      else if (act === 'shop') UI.openSheet('shop');
+      else if (act === 'more') UI.openSheet('more');
+    });
+
+    UI.el.feedPop.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-food]');
+      if (b) {
+        const type = b.dataset.food;
+        if (type !== 'plankton' && !(Game.state.inventory[type] > 0)) {
+          UI.closePopovers();
+          UI.openSheet('shop', 'food');
+          return;
+        }
+        Game.foodType = type;
+        A.click();
+        UI.updateFood();
+        UI.closePopovers();
+        UI.toast('點一下水面，就會撒下' + MJ.Food.TYPES[type].name + '。');
+      }
+    });
+
+    $('btnSound').addEventListener('click', () => {
+      Game.updateSettings({ muted: !Game.state.settings.muted });
+      UI.updateSound();
+    });
+    $('btnSettings').addEventListener('click', () => UI.openSheet('settings'));
+    UI.el.letterBtn.addEventListener('click', () => UI.letterModal());
+    $('sheetClose').addEventListener('click', () => UI.closeSheet());
+    UI.el.sheetBack.addEventListener('click', () => {
+      if (UI.sheetBackTo) UI.openSheet(UI.sheetBackTo);
+    });
+    UI.el.modal.addEventListener('click', (e) => {
+      if (e.target === UI.el.modal && UI.modalDismiss) UI.closeModal();
+    });
+    $('hintClose').addEventListener('click', () => {
+      UI.el.hint.hidden = true;
+      UI.hintDismissed = true;
+    });
+
+    $('introStart').addEventListener('click', () => Game.start());
+    $('breathStop').addEventListener('click', () => Game.stopBreath());
+    $('sleepStop').addEventListener('click', () => Game.stopSleep());
+    $('photoShot').addEventListener('click', () => Game.takePhoto());
+    $('photoClose').addEventListener('click', () => Game.stopPhoto());
+    $('arrangeDone').addEventListener('click', () => Game.arrange(false));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (UI.el.modal.classList.contains('open')) {
+        if (UI.modalDismiss) UI.closeModal();
+      } else if (UI.el.feedPop.classList.contains('open')) UI.closePopovers();
+      else if (UI.sheetKind) UI.closeSheet();
+      else if (Game.mode === 'breath') Game.stopBreath();
+      else if (Game.mode === 'sleep') Game.stopSleep();
+      else if (Game.mode === 'photo') Game.stopPhoto();
+      else if (Game.mode === 'arrange') Game.arrange(false);
+    });
+
+    // 在 claude.ai 的頁面裡，存照片要透過平台的下載功能；其他地方用一般的下載
+    UI.downloads = null;
+    try {
+      if (window.claude && typeof window.claude.use === 'function') {
+        window.claude.use('downloads').then((d) => (UI.downloads = d), () => {});
+      }
+    } catch (e) {
+      UI.downloads = null;
+    }
+
+    UI.updateFood();
+    UI.hudTick = 0;
+    UI.displayLight = Game.state.light;
+    UI.renderHud(true);
+    UI.pendingToasts = [];
+  };
+
+  UI.afterStart = (offline) => {
+    document.body.classList.remove('intro');
+    UI.el.intro.classList.add('gone');
+    setTimeout(() => (UI.el.intro.hidden = true), 1200);
+    const pend = UI.pendingToasts || [];
+    UI.pendingToasts = null;
+    UI.showHint(Game.currentHint());
+    const s = Game.state;
+    if (s.fresh) {
+      UI.welcomeModal();
+      setTimeout(() => {
+        if (Game.polyps.length) UI.toast('海底那個發光的小東西是水螅體，就快孵化了。');
+      }, 14000);
+    }
+    if (offline && (offline.gain > 0 || offline.born.length)) UI.offlineModal(offline);
+    if (Game.letterDue()) {
+      if (s.fresh) UI.el.letterBtn.hidden = false;
+      else UI.letterModal();
+    }
+    pend.forEach((t) => UI.toast.apply(null, t));
+  };
+
+  /* ================= HUD ================= */
+
+  UI.renderHud = (force) => {
+    const s = Game.state;
+    const target = s.light;
+    const d = UI.displayLight;
+    UI.displayLight = force ? target : d + (target - d) * 0.25;
+    if (Math.abs(target - UI.displayLight) < 1) UI.displayLight = target;
+    const txt = U.fmt(UI.displayLight);
+    if (UI.el.light.textContent !== txt) UI.el.light.textContent = txt;
+    const r = '+' + Game.rate.toFixed(Game.rate < 10 ? 1 : 0) + ' / 秒';
+    if (UI.el.rate.textContent !== r) UI.el.rate.textContent = r;
+    const due = Game.started && Game.letterDue();
+    if (UI.el.letterBtn.hidden === due) UI.el.letterBtn.hidden = !due;
+  };
+
+  UI.updateSound = () => {
+    const muted = !!Game.state.settings.muted;
+    const b = UI.el.soundBtn;
+    b.innerHTML = icon(muted ? 'soundOff' : 'soundOn');
+    b.setAttribute('aria-label', muted ? '打開聲音' : '關掉聲音');
+    b.setAttribute('aria-pressed', String(!muted));
+  };
+
+  UI.frame = (dt) => {
+    UI.hudTick -= dt;
+    if (UI.hudTick <= 0) {
+      UI.hudTick = 0.12;
+      UI.renderHud();
+    }
+    const live = UI.cardLive;
+    if (live) {
+      live.jelly.animate(dt, live.env);
+      const ctx = live.ctx;
+      ctx.setTransform(live.dpr, 0, 0, live.dpr, 0, 0);
+      ctx.clearRect(0, 0, live.size, live.size);
+      live.jelly.draw(ctx, live.env);
+    }
+    UI.slowTick = (UI.slowTick || 0) - dt;
+    if (UI.slowTick <= 0) {
+      UI.slowTick = 0.4;
+      UI.refreshBound();
+    }
+    if (Game.mode === 'sleep') UI.sleepTick();
+  };
+
+  /* ================= 提示 ================= */
+
+  UI.toast = (text, kind = 'soft', sub = null) => {
+    if (UI.pendingToasts) {
+      UI.pendingToasts.push([text, kind, sub]);
+      return;
+    }
+    const box = UI.el.toasts;
+    const el = document.createElement('div');
+    el.className = 'toast ' + kind;
+    el.innerHTML = '<div class="toast-main">' + esc(text) + '</div>' + (sub ? '<div class="toast-sub">' + esc(sub) + '</div>' : '');
+    box.appendChild(el);
+    while (box.children.length > 3) box.firstElementChild.remove();
+    const life = 3400 + String(text).length * 45 + (sub ? 1200 : 0);
+    setTimeout(() => {
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 450);
+    }, life);
+  };
+
+  UI.showHint = (text) => {
+    const h = UI.el.hint;
+    if (!text || UI.hintDismissed) {
+      h.hidden = true;
+      return;
+    }
+    $('hintText').textContent = text;
+    h.hidden = false;
+  };
+
+  /* ================= 餵食選單 ================= */
+
+  UI.toggleFeed = () => {
+    const pop = UI.el.feedPop;
+    if (pop.classList.contains('open')) return UI.closePopovers();
+    UI.updateFood();
+    pop.classList.add('open');
+    pop.setAttribute('aria-hidden', 'false');
+  };
+
+  UI.closePopovers = () => {
+    const pop = UI.el && UI.el.feedPop;
+    if (!pop) return;
+    pop.classList.remove('open');
+    pop.setAttribute('aria-hidden', 'true');
+  };
+
+  UI.updateFood = () => {
+    if (!UI.el) return;
+    const inv = Game.state.inventory;
+    const types = MJ.Food.TYPES;
+    UI.el.feedPop.innerHTML =
+      '<div class="pop-title">要餵什麼？</div>' +
+      Object.keys(types)
+        .map((k) => {
+          const n = k === 'plankton' ? '∞' : '×' + (inv[k] || 0);
+          const sel = Game.foodType === k ? ' selected' : '';
+          const empty = k !== 'plankton' && !(inv[k] > 0);
+          return (
+            '<button class="food-opt' + sel + (empty ? ' empty' : '') + '" data-food="' + k + '">' +
+            '<span class="food-dot food-' + k + '"></span>' +
+            '<span class="food-name">' + types[k].name + '<small>' + (empty ? '到商店買' : esc(types[k].desc)) + '</small></span>' +
+            '<span class="food-count">' + n + '</span></button>'
+          );
+        })
+        .join('');
+    const lbl = document.querySelector('#dock [data-act="feed"] .lbl');
+    if (lbl) lbl.textContent = Game.foodType === 'plankton' ? '餵食' : types[Game.foodType].name;
+    const btn = document.querySelector('#dock [data-act="feed"]');
+    if (btn) btn.classList.toggle('accent', Game.foodType !== 'plankton');
+  };
+
+  /* ================= 抽屜 ================= */
+
+  UI.openSheet = (kind, arg, opts = {}) => {
+    const R = RENDER[kind];
+    if (!R) return;
+    UI.cardLive = null;
+    UI.bound = null;
+    UI.sheetKind = kind;
+    UI.sheetArg = arg;
+    UI.sheetBackTo = opts.back || R.back || null;
+    UI.el.sheetBack.hidden = !UI.sheetBackTo;
+    const body = UI.el.sheetBody;
+    body.scrollTop = 0;
+    const title = R(body, arg);
+    UI.el.sheetTitle.textContent = title;
+    const sh = UI.el.sheet;
+    if (!sh.classList.contains('open')) {
+      sh.classList.add('open');
+      A.open();
+    }
+    sh.setAttribute('aria-label', title);
+    Game.selectedId = kind === 'jelly' && arg ? arg.id : null;
+  };
+
+  UI.closeSheet = () => {
+    UI.sheetKind = null;
+    UI.cardLive = null;
+    UI.bound = null;
+    Game.selectedId = null;
+    UI.el.sheet.classList.remove('open');
+  };
+
+  UI.rerender = () => {
+    if (UI.sheetKind) {
+      const top = UI.el.sheetBody.scrollTop;
+      UI.openSheet(UI.sheetKind, UI.sheetArg, { back: UI.sheetBackTo });
+      UI.el.sheetBody.scrollTop = top;
+    }
+  };
+
+  UI.openJelly = (j) => {
+    UI.openSheet('jelly', j);
+    Game.tut('card');
+  };
+
+  /** 每 0.4 秒更新抽屜裡會變動的數字 */
+  UI.refreshBound = () => {
+    const b = UI.bound;
+    if (b && b.jelly) {
+      const j = b.jelly;
+      if (!Game.jellies.includes(j) || j.leaving) {
+        UI.closeSheet();
+        return;
+      }
+      const set = (k, v) => {
+        const el = b.els[k];
+        if (el) el.style.width = Math.round(U.clamp(v, 0, 1) * 100) + '%';
+      };
+      set('fullness', j.fullness);
+      set('happy', j.happy);
+      set('growth', j.growth);
+      if (b.els.affection) b.els.affection.textContent = Math.floor(j.affection);
+      if (b.els.stage) b.els.stage.textContent = j.stage;
+      if (b.els.breedNote) {
+        const br = Game.breedable(j);
+        const txt = br.ok ? '可以找伴侶了。' : '還不能找伴侶：' + br.reason + '。';
+        if (b.els.breedNote.textContent !== txt) b.els.breedNote.textContent = txt;
+        if (b.els.mateBtn) b.els.mateBtn.disabled = !br.ok;
+      }
+      if (b.wasAdult !== j.adult || b.visitor !== j.visitor) {
+        UI.rerender();
+        return;
+      }
+    }
+    if (UI.sheetKind === 'shop' || UI.sheetKind === 'mate') {
+      const light = Game.state.light;
+      UI.el.sheetBody.querySelectorAll('[data-price]').forEach((btn) => {
+        if (btn.dataset.lock) return;
+        btn.disabled = light < +btn.dataset.price;
+      });
+      const cap = $('capLine');
+      if (cap) cap.textContent = Game.residentCount() + ' / ' + Game.capacity();
+    }
+    if (UI.sheetKind === 'roster') {
+      UI.el.sheetBody.querySelectorAll('[data-remaining]').forEach((el) => {
+        const p = Game.polyps.find((q) => q.id === el.dataset.remaining);
+        if (p) el.textContent = '約 ' + U.duration(p.remaining) + '後孵化';
+      });
+    }
+  };
+
+  const portraitCache = new Map();
+  UI.portrait = (genes, growth = 1, size = 96) => {
+    const key = genes.seed + '|' + genes.hue.toFixed(0) + genes.shape + genes.pattern + (genes.special || '') + '|' + growth.toFixed(2) + '|' + size;
+    let url = portraitCache.get(key);
+    if (url) return url;
+    const c = document.createElement('canvas');
+    MJ.Jelly.portrait(c, genes, growth, size);
+    try {
+      url = c.toDataURL();
+    } catch (e) {
+      url = '';
+    }
+    portraitCache.set(key, url);
+    return url;
+  };
+  const portraitImg = (genes, growth, size, cls = 'portrait') =>
+    '<img class="' + cls + '" src="' + UI.portrait(genes, growth, size) + '" width="' + size + '" height="' + size + '" alt="">';
+
+  const traitChips = (g) => {
+    const d = Gn.describe(g);
+    let html = '<span class="chip"><i class="sw" style="background:' + colorCss(g) + '"></i>' + d.colorName + '</span>';
+    html += '<span class="chip">' + d.shapeName + '</span>';
+    html += '<span class="chip">' + d.patternName + '</span>';
+    if (d.specialName) html += '<span class="chip special">' + d.specialName + '</span>';
+    return html;
+  };
+
+  const RENDER = {};
+
+  /* ---------- 水母名片 ---------- */
+  RENDER.jelly = (body, j) => {
+    const g = j.genes;
+    const d = Gn.describe(g);
+    const size = 168;
+    const visitor = j.visitor;
+    let html = '<div class="card-hero">';
+    html += '<canvas class="card-portrait" id="cardCanvas" width="' + size + '" height="' + size + '" aria-label="' + esc(j.name) + '的樣子"></canvas>';
+    html += '<div class="card-id">' + starsHTML(d.stars) + '<div class="rarity">' + d.rarity + '・<span data-bind="stage">' + j.stage + '</span></div>';
+    html += '<div class="chips">' + traitChips(g) + '</div></div></div>';
+
+    if (visitor) {
+      const left = Math.max(0, (j.leaveAt || 0) - Game.t);
+      html += '<p class="lede">從外面的海游進來參觀的野生水母。大約 ' + U.duration(left) + '後就會離開。</p>';
+      const full = Game.residentCount() >= Game.capacity();
+      html += '<div class="actions"><button class="btn" data-a="adopt"' + (full ? ' disabled' : '') + '>邀請牠住下來</button></div>';
+      if (full) html += '<p class="note">水族箱滿了。升級水族箱，或讓一隻水母回到大海，就能留下牠。</p>';
+    } else {
+      html += '<div class="meters">';
+      html += '<div class="meter"><span>飽足</span><div class="bar"><i data-bind="fullness"></i></div></div>';
+      html += '<div class="meter"><span>心情</span><div class="bar bar-happy"><i data-bind="happy"></i></div></div>';
+      if (!j.adult) html += '<div class="meter"><span>成長</span><div class="bar bar-grow"><i data-bind="growth"></i></div></div>';
+      html += '</div>';
+      html += '<dl class="facts">';
+      html += '<div><dt>親密度</dt><dd><span data-bind="affection">' + Math.floor(j.affection) + '</span></dd></div>';
+      html += '<div><dt>吃過的煩惱</dt><dd>' + j.worryFed + ' 個</dd></div>';
+      html += '<div><dt>牠的音</dt><dd>' + noteName(g) + '</dd></div>';
+      html += '<div><dt>觸手</dt><dd>' + g.tentacles + ' 條</dd></div>';
+      html += '<div><dt>來到這裡</dt><dd>' + dateStr(j.born) + '</dd></div>';
+      html += '<div><dt>父母</dt><dd>' + (j.parents ? esc(j.parents.join(' × ')) : '來自大海') + '</dd></div>';
+      html += '</dl>';
+      const br = Game.breedable(j);
+      html += '<div class="actions">';
+      html += '<button class="btn" data-a="pet">' + icon('heart') + '摸摸</button>';
+      html += '<button class="btn" data-a="mate" data-bind="mateBtn"' + (br.ok ? '' : ' disabled') + '>找伴侶</button>';
+      html += '<button class="btn ghost" data-a="rename">改名</button>';
+      html += '<button class="btn ghost quiet" data-a="release">回到大海</button>';
+      html += '</div>';
+      html += '<p class="note" data-bind="breedNote"></p>';
+    }
+    body.innerHTML = html;
+
+    const canvas = $('cardCanvas');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    const env = MJ.Jelly.portraitEnv(g, size);
+    env.world.theme = { glow: 1 };
+    const pj = MJ.Jelly.posed(g, j.growth, env);
+    for (let i = 0; i < 40; i++) pj.animate(1 / 30, env);
+    UI.cardLive = { jelly: pj, env, canvas, ctx: canvas.getContext('2d'), dpr, size };
+
+    const els = {};
+    body.querySelectorAll('[data-bind]').forEach((el) => (els[el.dataset.bind] = el));
+    UI.bound = { jelly: j, els, wasAdult: j.adult, visitor: j.visitor };
+    UI.refreshBound();
+
+    body.querySelector('.actions').addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-a]');
+      if (!b) return;
+      const a = b.dataset.a;
+      if (a === 'pet') Game.petButton(j.id);
+      else if (a === 'adopt') {
+        Game.adoptVisitor(j.id);
+        UI.openSheet('jelly', j);
+      } else if (a === 'mate') UI.openSheet('mate', j, { back: null });
+      else if (a === 'rename') {
+        const name = await UI.prompt({ title: '幫牠取個新名字', value: j.name, max: 12 });
+        if (name) {
+          Game.rename(j.id, name);
+          UI.openSheet('jelly', j);
+        }
+      } else if (a === 'release') {
+        const ok = await UI.confirm({
+          title: '要讓「' + j.name + '」回到大海嗎？',
+          text: '牠會慢慢游向海面，回到外面的海。名字會留在名冊的「回到大海的孩子」裡。',
+          img: UI.portrait(g, j.growth, 120),
+          ok: '讓牠回去',
+          cancel: '再想想',
+        });
+        if (ok) {
+          UI.closeSheet();
+          Game.release(j.id);
+        }
+      }
+    });
+    return visitor ? '野生的訪客' : j.name;
+  };
+
+  /* ---------- 找伴侶 ---------- */
+  RENDER.mate = (body, j) => {
+    const list = Game.partnersFor(j);
+    let html = '<div class="mate-self">' + portraitImg(j.genes, 1, 64, 'portrait sm') + '<p class="lede">成年、吃飽、沒有在休息的水母，才能一起孕育新的水螅體。孩子會混合兩邊的樣子，偶爾也會出現誰都沒見過的特徵。</p></div>';
+    if (!list.length) {
+      html += '<div class="empty">現在沒有可以配對的對象。<br>餵大家吃點東西，或等小水母長大吧。</div>';
+    } else {
+      html += '<ul class="rows">';
+      for (const k of list) {
+        const feel = Game.feeling(j, k);
+        const d = Gn.describe(k.genes);
+        html += '<li class="row">' + portraitImg(k.genes, k.growth, 60, 'portrait sm');
+        html += '<div class="row-main"><div class="row-title">' + esc(k.name) + ' ' + starsHTML(d.stars) + '</div>';
+        html += '<div class="row-sub">' + d.colorName + '・' + d.shapeName + '・' + d.patternName + (d.specialName ? '・' + d.specialName : '') + '</div>';
+        if (feel) html += '<div class="row-feel">有一種特別的預感</div>';
+        html += '</div><button class="btn sm" data-mate="' + k.id + '">就是牠</button></li>';
+      }
+      html += '</ul>';
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('[data-mate]').forEach((b) =>
+      b.addEventListener('click', () => {
+        if (Game.startMate(j.id, b.dataset.mate)) UI.closeSheet();
+      })
+    );
+    return '幫「' + j.name + '」找伴侶';
+  };
+
+  /* ---------- 圖鑑 ---------- */
+  const SAMPLE = (over) =>
+    Object.assign(
+      { hue: 196, hue2: 176, sat: 0.55, shape: 'dome', size: 1, tentacles: 8, tentLen: 0.9, arms: 2, armLen: 0.7, pattern: 'plain', glow: 0.75, pulse: 1, special: null, seed: 424242 },
+      over
+    );
+
+  RENDER.codex = (body, tab) => {
+    tab = tab || UI.codexTab || 'color';
+    UI.codexTab = tab;
+    const s = Game.state;
+    const found = Object.keys(s.codex).length;
+    const total = Gn.codexTotal();
+    const tabs = [
+      ['color', '顏色', Gn.COLORS.length, 'color:'],
+      ['shape', '傘形', Gn.SHAPE_IDS.length, 'shape:'],
+      ['pattern', '花紋', Gn.PATTERN_IDS.length, 'pattern:'],
+      ['special', '體質', Gn.SPECIAL_IDS.length, 'special:'],
+      ['life', '一生', 0, ''],
+    ];
+    const count = (prefix) => Object.keys(s.codex).filter((k) => k.startsWith(prefix)).length;
+    let html = '<div class="progress-head"><div><strong>' + found + '</strong> / ' + total + ' 項已發現</div><div class="bar"><i style="width:' + Math.round((found / total) * 100) + '%"></i></div></div>';
+    html += '<div class="tabs" role="tablist">';
+    for (const [id, name, n, prefix] of tabs) {
+      html += '<button role="tab" class="tab' + (id === tab ? ' on' : '') + '" aria-selected="' + (id === tab) + '" data-tab="' + id + '">' + name + (n ? '<small>' + count(prefix) + '/' + n + '</small>' : '') + '</button>';
+    }
+    html += '</div>';
+
+    if (tab === 'color') {
+      html += '<div class="swatches">';
+      for (const c of Gn.COLORS) {
+        const got = s.codex['color:' + c.id];
+        const bg = c.pale ? 'radial-gradient(circle at 40% 35%, #fff, hsl(200,20%,78%))' : 'radial-gradient(circle at 40% 35%, hsl(' + c.hue + ',85%,86%), hsl(' + c.hue + ',70%,56%))';
+        html += '<div class="swatch' + (got ? '' : ' locked') + '"><span class="orb" style="' + (got ? 'background:' + bg : '') + '"></span>';
+        html += '<b>' + (got ? c.name : '？？') + '</b><small>' + (got ? c.desc : '還沒遇見這個顏色') + '</small></div>';
+      }
+      html += '</div>';
+    } else if (tab === 'shape' || tab === 'pattern' || tab === 'special') {
+      const defs = tab === 'shape' ? Gn.SHAPES : tab === 'pattern' ? Gn.PATTERNS : Gn.SPECIALS;
+      const ids = Object.keys(defs);
+      html += '<ul class="rows codex-rows">';
+      for (const id of ids) {
+        const def = defs[id];
+        const got = s.codex[tab + ':' + id];
+        const genes =
+          tab === 'shape'
+            ? SAMPLE({ shape: id })
+            : tab === 'pattern'
+            ? SAMPLE({ pattern: id, hue: 330, hue2: 45, sat: 0.6 })
+            : SAMPLE({ special: id, hue: id === 'golden' ? 46 : 260, hue2: 190, sat: id === 'ghost' ? 0.12 : 0.65, pattern: 'clover' });
+        html += '<li class="row' + (got ? '' : ' locked') + '">';
+        html += got ? portraitImg(genes, 1, 64, 'portrait sm') : '<span class="portrait sm unknown" aria-hidden="true">？</span>';
+        html += '<div class="row-main"><div class="row-title">' + (got ? def.name : '？？？') + '</div>';
+        if (got) html += '<div class="row-sub">' + def.desc + '</div>';
+        else html += '<div class="row-sub clue">' + (def.hint ? '提示：' + def.hint : '還沒遇見。多養幾隻、多配幾對看看。') + '</div>';
+        html += '</div></li>';
+      }
+      html += '</ul>';
+    } else {
+      html += '<ol class="life">';
+      const stages = [
+        ['水螅體', '像一朵小小的海葵，黏在海底。這是水母的童年。'],
+        ['橫裂體', '身體一節一節分開，疊成一串小碟子。'],
+        ['碟狀幼體', '最上面的碟子脫離出發，看起來像八角星。'],
+        ['水母體', '傘慢慢長圓，就是我們熟悉的水母了。'],
+      ];
+      for (const [n, d] of stages) html += '<li><b>' + n + '</b><span>' + d + '</span></li>';
+      html += '</ol><h3 class="sub-h">水母小知識</h3><ul class="facts-list">';
+      for (const f of C.facts) html += '<li>' + esc(f) + '</li>';
+      html += '</ul>';
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('[data-tab]').forEach((b) =>
+      b.addEventListener('click', () => {
+        A.click();
+        UI.openSheet('codex', b.dataset.tab);
+      })
+    );
+    return '水母圖鑑';
+  };
+
+  /* ---------- 商店 ---------- */
+  const priceBtn = (price, label, extra = '') =>
+    '<button class="btn sm price" data-price="' + price + '"' + extra + '>' + '<span class="light-dot sm"></span>' + U.fmt(price) + (label ? '<span class="price-lbl">' + label + '</span>' : '') + '</button>';
+
+  RENDER.shop = (body, tab) => {
+    tab = tab || UI.shopTab || 'jelly';
+    UI.shopTab = tab;
+    const s = Game.state;
+    const tabs = [
+      ['jelly', '水母'],
+      ['food', '零食'],
+      ['decor', '裝飾'],
+      ['theme', '主題'],
+    ];
+    let html = '<div class="wallet"><span class="light-dot"></span><span>' + U.fmt(s.light) + ' 光</span><span class="wallet-sub">水母們每秒會發出 ' + Game.rate.toFixed(1) + ' 光</span></div>';
+    html += '<div class="tabs" role="tablist">';
+    for (const [id, name] of tabs) html += '<button role="tab" class="tab' + (id === tab ? ' on' : '') + '" aria-selected="' + (id === tab) + '" data-tab="' + id + '">' + name + '</button>';
+    html += '</div>';
+
+    if (tab === 'jelly') {
+      const full = Game.residentCount() >= Game.capacity();
+      html += '<ul class="rows shop-rows">';
+      html += '<li class="row"><span class="thumb net" aria-hidden="true">' + icon('jelly', 'i big') + '</span><div class="row-main"><div class="row-title">撈一隻野生水母</div>';
+      html += '<div class="row-sub">從外面的海撈一隻來。長什麼樣子，撈起來才知道。每撈一次會貴一點點。</div></div>';
+      html += full ? '<button class="btn sm" disabled data-lock="1">滿了</button>' : priceBtn(Game.catchCost(), '', ' data-buy="catch"');
+      html += '</li>';
+      const next = Game.TANK_PRICE[s.tank];
+      html += '<li class="row"><span class="thumb tank" aria-hidden="true"><b id="capLine">' + Game.residentCount() + ' / ' + Game.capacity() + '</b></span><div class="row-main"><div class="row-title">升級水族箱</div>';
+      html += '<div class="row-sub">' + (next != null ? '可以住的水母（含水螅體）從 ' + Game.capacity() + ' 隻變成 ' + Game.TANK[s.tank + 1] + ' 隻。' : '已經是最大的水族箱了。') + '</div></div>';
+      html += next != null ? priceBtn(next, '', ' data-buy="tank"') : '<button class="btn sm" disabled data-lock="1">最大</button>';
+      html += '</li></ul>';
+    } else if (tab === 'food') {
+      html += '<ul class="rows shop-rows">';
+      for (const k of ['star', 'dew']) {
+        const t = MJ.Food.TYPES[k];
+        const item = Game.SHOP_FOOD[k];
+        html += '<li class="row"><span class="thumb"><span class="food-dot big food-' + k + '"></span></span><div class="row-main"><div class="row-title">' + t.name + ' ×' + item.qty + '</div>';
+        html += '<div class="row-sub">' + t.desc + '　現在有 ' + (s.inventory[k] || 0) + ' 份。</div></div>';
+        html += priceBtn(item.price, '', ' data-buy="food" data-id="' + k + '"') + '</li>';
+      }
+      html += '</ul><p class="note">買好之後，按下方的「餵食」切換要撒的東西。</p>';
+    } else if (tab === 'decor') {
+      if (s.decor.length) html += '<button class="btn ghost wide" data-arrange="1">' + icon('arrange') + '調整擺設的位置</button>';
+      html += '<ul class="rows shop-rows">';
+      for (const [k, def] of Object.entries(MJ.Decor.DEFS)) {
+        const n = Game.decorCount(k);
+        html += '<li class="row"><canvas class="thumb" data-decor="' + k + '" width="72" height="72" aria-hidden="true"></canvas><div class="row-main"><div class="row-title">' + def.name + (def.max > 1 ? '<small>' + n + '/' + def.max + '</small>' : '') + '</div>';
+        html += '<div class="row-sub">' + def.desc + '</div></div>';
+        html += n >= def.max ? '<button class="btn sm" disabled data-lock="1">' + (def.max > 1 ? '已滿' : '已擁有') + '</button>' : priceBtn(def.price, '', ' data-buy="decor" data-id="' + k + '"');
+        html += '</li>';
+      }
+      html += '</ul>';
+    } else if (tab === 'theme') {
+      html += '<ul class="theme-grid">';
+      for (const [k, th] of Object.entries(MJ.World.THEMES)) {
+        const owned = s.themes.includes(k);
+        const using = s.theme === k;
+        const bg = 'linear-gradient(180deg,' + th.grad.join(',') + ')';
+        html += '<li class="theme-card' + (using ? ' using' : '') + '"><span class="theme-sw" style="background:' + bg + '"><i style="background:' + th.sand[0] + '"></i></span>';
+        html += '<div class="theme-name">' + th.name + '</div><div class="theme-desc">' + th.desc + '</div>';
+        if (using) html += '<button class="btn sm ghost" disabled data-lock="1">使用中</button>';
+        else if (owned) html += '<button class="btn sm ghost" data-buy="theme" data-id="' + k + '">換上</button>';
+        else html += priceBtn(th.price, '', ' data-buy="theme" data-id="' + k + '"');
+        html += '</li>';
+      }
+      html += '</ul>';
+    }
+    body.innerHTML = html;
+
+    body.querySelectorAll('canvas[data-decor]').forEach((c) => UI.drawDecorThumb(c, c.dataset.decor));
+    body.querySelectorAll('[data-tab]').forEach((b) =>
+      b.addEventListener('click', () => {
+        A.click();
+        UI.openSheet('shop', b.dataset.tab);
+      })
+    );
+    const arr = body.querySelector('[data-arrange]');
+    if (arr)
+      arr.addEventListener('click', () => {
+        UI.closeSheet();
+        Game.arrange(true);
+      });
+    body.querySelectorAll('[data-buy]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const kind = b.dataset.buy;
+        const id = b.dataset.id;
+        if (kind === 'catch') {
+          UI.closeSheet();
+          Game.catchWild();
+          return;
+        }
+        if (kind === 'tank') Game.upgradeTank();
+        else if (kind === 'food') Game.buyFood(id);
+        else if (kind === 'decor') Game.buyDecor(id);
+        else if (kind === 'theme') Game.buyTheme(id);
+        UI.rerender();
+      })
+    );
+    UI.refreshBound();
+    return '貝殼商店';
+  };
+
+  UI.drawDecorThumb = (canvas, type) => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const S = 72;
+    canvas.width = S * dpr;
+    canvas.height = S * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const def = MJ.Decor.DEFS[type];
+    const unit = Math.min(60 / def.w, 56 / def.h);
+    const world = {
+      W: S,
+      H: S,
+      unit,
+      dim: 0,
+      current: 0,
+      theme: Game.world.theme,
+      sandY: () => S - 14,
+      addBubble: () => null,
+    };
+    ctx.fillStyle = Game.world.theme.sand[0];
+    ctx.fillRect(0, S - 12, S, 12);
+    MJ.Decor.draw(ctx, MJ.Decor.create(type, 0.5), world, 1.2, false);
+  };
+
+  /* ---------- 呼吸設定 ---------- */
+  RENDER.breath = (body) => {
+    const sel = UI.breathSel || { id: 'relax', cycles: 5 };
+    UI.breathSel = sel;
+    let html = '<p class="lede">水母們會跟著你一起呼吸。吸氣的時候，傘會慢慢張開；吐氣的時候，輕輕收起來往上游。</p>';
+    html += '<div class="choice-list" role="radiogroup" aria-label="呼吸節奏">';
+    for (const [id, b] of Object.entries(Game.BREATHS)) {
+      html += '<button role="radio" aria-checked="' + (sel.id === id) + '" class="choice' + (sel.id === id ? ' on' : '') + '" data-id="' + id + '"><b>' + b.name + '<span class="mono">' + b.label + '</span></b><small>' + b.desc + '</small></button>';
+    }
+    html += '</div><div class="seg" role="radiogroup" aria-label="次數">';
+    for (const n of [3, 5, 10]) html += '<button role="radio" aria-checked="' + (sel.cycles === n) + '" class="seg-btn' + (sel.cycles === n ? ' on' : '') + '" data-cycles="' + n + '">' + n + ' 輪</button>';
+    html += '</div>';
+    const pat = Game.BREATHS[sel.id];
+    const secs = pat.seq.reduce((a, [, d]) => a + d, 0) * sel.cycles;
+    html += '<button class="btn wide" id="breathGo">開始（約 ' + U.duration(secs) + '）</button>';
+    html += '<p class="note">完成後會得到 ' + 15 * sel.cycles + ' 光。做完五分鐘內出生的孩子，好像會特別不一樣。</p>';
+    body.innerHTML = html;
+    body.querySelectorAll('.choice').forEach((b) =>
+      b.addEventListener('click', () => {
+        sel.id = b.dataset.id;
+        UI.rerender();
+      })
+    );
+    body.querySelectorAll('[data-cycles]').forEach((b) =>
+      b.addEventListener('click', () => {
+        sel.cycles = +b.dataset.cycles;
+        UI.rerender();
+      })
+    );
+    $('breathGo').addEventListener('click', () => {
+      UI.closeSheet();
+      Game.startBreath(sel.id, sel.cycles);
+    });
+    return '和水母一起呼吸';
+  };
+
+  /* ---------- 更多 ---------- */
+  RENDER.more = (body) => {
+    const s = Game.state;
+    const achDone = Object.keys(s.achievements).length;
+    const items = [
+      ['photo', 'camera', '拍照', '把現在的水族箱拍下來'],
+      ['roster', 'jelly', '水母名冊', '住在這裡的、還在長大的、回到大海的'],
+      ['ach', 'trophy', '成就', achDone + ' / ' + Game.ACH.length + ' 個'],
+      ['diary', 'diary', '心情日記', '連續 ' + (s.daily.streak || 0) + ' 天'],
+      ['settings', 'settings', '聲音與設定', '音樂、音效、存檔'],
+      ['about', 'info', '關於海月', '怎麼玩、這裡是怎麼做出來的'],
+    ];
+    let html = '<div class="sleep-card"><div class="sleep-head">' + icon('moon', 'i big') + '<div><b>晚安模式</b><small>畫面變暗，音樂在你選的時間內慢慢變小。</small></div></div><div class="seg">';
+    for (const m of [15, 30, 60]) html += '<button class="seg-btn" data-sleep="' + m + '">' + m + ' 分鐘</button>';
+    html += '</div></div><ul class="menu">';
+    for (const [id, ic, name, sub] of items) {
+      html += '<li><button class="menu-item" data-go="' + id + '">' + icon(ic) + '<span><b>' + name + '</b><small>' + esc(sub) + '</small></span></button></li>';
+    }
+    html += '</ul>';
+    body.innerHTML = html;
+    body.querySelectorAll('[data-sleep]').forEach((b) =>
+      b.addEventListener('click', () => {
+        UI.closeSheet();
+        Game.startSleep(+b.dataset.sleep);
+      })
+    );
+    body.querySelectorAll('[data-go]').forEach((b) =>
+      b.addEventListener('click', () => {
+        A.click();
+        const id = b.dataset.go;
+        if (id === 'photo') {
+          UI.closeSheet();
+          Game.startPhoto();
+        } else UI.openSheet(id, null, { back: 'more' });
+      })
+    );
+    return '更多';
+  };
+
+  RENDER.roster = (body) => {
+    const s = Game.state;
+    const res = Game.residentJellies();
+    let html = '<h3 class="sub-h">住在這裡（' + res.length + ' 隻）</h3><ul class="rows">';
+    for (const j of res) {
+      const d = Gn.describe(j.genes);
+      html += '<li class="row clickable" data-open="' + j.id + '">' + portraitImg(j.genes, j.growth, 56, 'portrait sm');
+      html += '<div class="row-main"><div class="row-title">' + esc(j.name) + ' ' + starsHTML(d.stars) + '</div><div class="row-sub">' + j.stage + '・' + d.colorName + '・' + d.shapeName + (d.specialName ? '・' + d.specialName : '') + '</div></div></li>';
+    }
+    html += '</ul>';
+    if (Game.polyps.length) {
+      html += '<h3 class="sub-h">海底的水螅體</h3><ul class="rows">';
+      for (const p of Game.polyps) {
+        html += '<li class="row"><span class="portrait sm unknown" aria-hidden="true">' + icon('jelly') + '</span><div class="row-main"><div class="row-title">' + (p.parents ? esc(p.parents.join(' × ')) + ' 的孩子' : '從大海漂來的') + '</div><div class="row-sub" data-remaining="' + p.id + '">約 ' + U.duration(p.remaining) + '後孵化</div></div></li>';
+      }
+      html += '</ul>';
+    }
+    if (s.released.length) {
+      html += '<h3 class="sub-h">回到大海的孩子</h3><ul class="rows">';
+      for (const r of s.released) {
+        const d = Gn.describe(r.genes);
+        html += '<li class="row dim">' + portraitImg(r.genes, 1, 48, 'portrait xs') + '<div class="row-main"><div class="row-title">' + esc(r.name) + '</div><div class="row-sub">' + d.colorName + '・' + d.shapeName + '・' + dateStr(r.date) + ' 回到大海</div></div></li>';
+      }
+      html += '</ul>';
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('[data-open]').forEach((el) =>
+      el.addEventListener('click', () => {
+        const j = Game.jellies.find((k) => k.id === el.dataset.open);
+        if (j) UI.openJelly(j);
+      })
+    );
+    return '水母名冊';
+  };
+  RENDER.roster.back = 'more';
+
+  RENDER.ach = (body) => {
+    const s = Game.state;
+    let html = '<ul class="ach-list">';
+    for (const a of Game.ACH) {
+      const done = s.achievements[a.id];
+      html += '<li class="ach' + (done ? ' done' : '') + '">' + icon('trophy') + '<div><b>' + a.name + '</b><small>' + a.desc + '</small></div><span class="ach-r">' + (done ? dateStr(done) : '+' + a.reward) + '</span></li>';
+    }
+    html += '</ul>';
+    body.innerHTML = html;
+    return '成就';
+  };
+  RENDER.ach.back = 'more';
+
+  RENDER.diary = (body) => {
+    const s = Game.state;
+    const days = 35;
+    const today = new Date();
+    let html = '<p class="lede">每天來拆海的來信時選的心情，會記在這裡。</p><div class="diary">';
+    const wd = ['日', '一', '二', '三', '四', '五', '六'];
+    for (const w of wd) html += '<span class="dw">' + w + '</span>';
+    const start = new Date(today);
+    start.setDate(today.getDate() - days + 1);
+    for (let i = 0; i < start.getDay(); i++) html += '<span class="dd blank"></span>';
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = U.today(d);
+      const m = C.moods.find((x) => x.id === s.moods[key]);
+      const isToday = i === days - 1;
+      html += '<span class="dd' + (isToday ? ' today' : '') + '" title="' + key + (m ? '・' + m.name : '') + '"' + (m ? ' style="--m:' + m.color + '"' : '') + '><i></i><small>' + d.getDate() + '</small></span>';
+    }
+    html += '</div><div class="legend">';
+    for (const m of C.moods) html += '<span><i style="background:' + m.color + '"></i>' + m.name + '</span>';
+    html += '</div><dl class="facts two"><div><dt>連續</dt><dd>' + (s.daily.streak || 0) + ' 天</dd></div><div><dt>最長紀錄</dt><dd>' + (s.daily.best || 0) + ' 天</dd></div><div><dt>拆過的信</dt><dd>' + s.stats.letters + ' 封</dd></div><div><dt>被吃掉的煩惱</dt><dd>' + s.stats.worries + ' 個</dd></div></dl>';
+    body.innerHTML = html;
+    return '心情日記';
+  };
+  RENDER.diary.back = 'more';
+
+  RENDER.settings = (body) => {
+    const st = Game.state.settings;
+    const tog = (key, label, sub) =>
+      '<label class="toggle"><span><b>' + label + '</b><small>' + sub + '</small></span><input type="checkbox" id="set_' + key + '" data-set="' + key + '"' + (st[key] ? ' checked' : '') + '><i aria-hidden="true"></i></label>';
+    let html = '<div class="set-group">';
+    html += tog('music', '背景音樂', '深海的和弦、鈴聲與水聲');
+    html += tog('sing', '水母唱歌', '每隻水母脈動時，偶爾會唱出自己的音');
+    html += tog('sfx', '音效', '點水、泡泡、摸摸的聲音');
+    html += '<label class="range"><span><b>音量</b></span><input type="range" id="set_volume" min="0" max="1" step="0.05" value="' + st.volume + '"></label>';
+    html += '</div><h3 class="sub-h">音樂的氛圍</h3><div class="seg wrap" role="radiogroup">';
+    for (const [k, m] of Object.entries(A.MOODS)) {
+      html += '<button role="radio" aria-checked="' + (st.mood === k) + '" class="seg-btn' + (st.mood === k ? ' on' : '') + '" data-mood="' + k + '">' + m.name + '</button>';
+    }
+    html += '</div><h3 class="sub-h">存檔</h3><p class="note">存檔只放在這台裝置的瀏覽器裡。想搬到別的裝置，可以複製存檔碼，再到那邊貼上。</p>';
+    html += '<div class="btn-row"><button class="btn ghost sm" id="expBtn">複製存檔碼</button><button class="btn ghost sm" id="impBtn">貼上存檔碼</button><button class="btn ghost sm quiet" id="resetBtn">從頭開始</button></div>';
+    html += '<div id="saveBox"></div>';
+    body.innerHTML = html;
+
+    body.querySelectorAll('[data-set]').forEach((el) =>
+      el.addEventListener('change', () => {
+        Game.updateSettings({ [el.dataset.set]: el.checked });
+        UI.updateSound();
+      })
+    );
+    $('set_volume').addEventListener('input', (e) => Game.updateSettings({ volume: +e.target.value, muted: false }));
+    $('set_volume').addEventListener('change', () => UI.updateSound());
+    body.querySelectorAll('[data-mood]').forEach((b) =>
+      b.addEventListener('click', () => {
+        Game.updateSettings({ mood: b.dataset.mood });
+        UI.rerender();
+      })
+    );
+    $('expBtn').addEventListener('click', () => {
+      const code = Game.exportSave();
+      $('saveBox').innerHTML = '<textarea id="saveCode" class="code" rows="4" readonly aria-label="存檔碼">' + esc(code) + '</textarea>';
+      const ta = $('saveCode');
+      ta.focus();
+      ta.select();
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(
+          () => UI.toast('存檔碼複製好了。'),
+          () => UI.toast('已經選取存檔碼，自己複製一下就好。')
+        );
+      } else UI.toast('已經選取存檔碼，自己複製一下就好。');
+    });
+    $('impBtn').addEventListener('click', () => {
+      $('saveBox').innerHTML = '<textarea id="saveIn" class="code" rows="4" placeholder="把存檔碼貼在這裡" aria-label="貼上存檔碼"></textarea><button class="btn sm" id="impGo">讀取這個存檔</button>';
+      $('impGo').addEventListener('click', async () => {
+        const text = $('saveIn').value;
+        if (!text.trim()) return;
+        const ok = await UI.confirm({ title: '要讀取這個存檔嗎？', text: '現在的水族箱會被取代。', ok: '讀取', cancel: '先不要' });
+        if (ok && !Game.importSave(text)) UI.toast('這段存檔碼看不懂。確認一下有沒有複製完整？');
+      });
+    });
+    $('resetBtn').addEventListener('click', async () => {
+      const ok = await UI.confirm({ title: '真的要從頭開始嗎？', text: '所有的水母、光、圖鑑和日記都會消失，沒辦法復原。', ok: '從頭開始', cancel: '不要', danger: true });
+      if (ok) Game.resetAll();
+    });
+    return '聲音與設定';
+  };
+  RENDER.settings.back = null;
+
+  RENDER.about = (body) => {
+    body.innerHTML =
+      '<p class="lede">海月水母館是一座只屬於你的夜光水母缸。這裡沒有輸贏，也沒有水母會死掉，餓了只是比較不亮而已。</p>' +
+      '<h3 class="sub-h">可以做的事</h3><ul class="facts-list">' +
+      '<li>點水撒下浮游生物；按住拖曳可以撒一整排。水面也是一把琴：越右邊，音越高。</li>' +
+      '<li>按住水母輕輕滑動，就是摸摸。被愛得夠多的水母，孩子會帶著愛心。</li>' +
+      '<li>把煩惱寫下來交給水母。牠吃掉之後，煩惱會變成光。內容不會被保存。</li>' +
+      '<li>兩隻長大的水母可以一起孕育水螅體，孩子會混合兩邊的樣子。</li>' +
+      '<li>圖鑑有 ' + Gn.codexTotal() + ' 項，特殊體質都藏著配方，看提示慢慢找。</li>' +
+      '<li>每天第一次來，會收到一封海的來信。</li></ul>' +
+      '<h3 class="sub-h">這裡是怎麼做出來的</h3><p class="note">畫面裡的每一隻水母、每一根觸手、每一段音樂和每一句話，都是程式當下生成的，沒有使用任何圖片或音檔。水母的觸手用簡單的物理模擬；音樂是 D 大調五聲音階，所以怎麼點都會好聽。</p>' +
+      '<p class="note">所有資料只存在你這台裝置的瀏覽器裡。</p>';
+    return '關於海月';
+  };
+  RENDER.about.back = 'more';
+
+  /* ================= 對話框 ================= */
+
+  UI.modalQueue = [];
+  UI.showModal = (render, opts = {}) => {
+    if (UI.modalOpenNow) {
+      UI.modalQueue.push([render, opts]);
+      return;
+    }
+    UI.modalOpenNow = true;
+    UI.modalDismiss = opts.dismissible !== false;
+    UI.modalOnClose = opts.onClose || null;
+    const card = UI.el.modalCard;
+    card.className = 'modal-card ' + (opts.cls || '');
+    card.innerHTML = '';
+    render(card, UI.closeModal);
+    UI.el.modal.hidden = false;
+    requestAnimationFrame(() => UI.el.modal.classList.add('open'));
+    const f = card.querySelector('[autofocus], textarea, input, .btn');
+    if (f) setTimeout(() => f.focus({ preventScroll: true }), 60);
+  };
+
+  UI.closeModal = () => {
+    if (!UI.modalOpenNow) return;
+    const cb = UI.modalOnClose;
+    UI.modalOnClose = null;
+    UI.el.modal.classList.remove('open');
+    setTimeout(() => {
+      UI.el.modal.hidden = true;
+      UI.modalOpenNow = false;
+      if (cb) cb();
+      const next = UI.modalQueue.shift();
+      if (next) UI.showModal(next[0], next[1]);
+    }, 280);
+  };
+
+  UI.confirm = (o) =>
+    new Promise((resolve) => {
+      let answered = false;
+      UI.showModal(
+        (card, close) => {
+          card.innerHTML =
+            (o.img ? '<img class="portrait md" src="' + o.img + '" alt="">' : '') +
+            '<h2 class="m-title">' + esc(o.title) + '</h2>' +
+            (o.text ? '<p class="m-text">' + esc(o.text) + '</p>' : '') +
+            '<div class="btn-row center"><button class="btn ghost" data-r="0">' + esc(o.cancel || '取消') + '</button><button class="btn' + (o.danger ? ' danger' : '') + '" data-r="1">' + esc(o.ok || '確定') + '</button></div>';
+          card.querySelectorAll('[data-r]').forEach((b) =>
+            b.addEventListener('click', () => {
+              answered = true;
+              resolve(b.dataset.r === '1');
+              close();
+            })
+          );
+        },
+        { onClose: () => !answered && resolve(false) }
+      );
+    });
+
+  UI.prompt = (o) =>
+    new Promise((resolve) => {
+      let answered = false;
+      UI.showModal(
+        (card, close) => {
+          card.innerHTML =
+            '<h2 class="m-title">' + esc(o.title) + '</h2>' +
+            '<form class="m-form" id="promptForm"><input id="promptInput" class="field" maxlength="' + (o.max || 20) + '" value="' + esc(o.value || '') + '" aria-label="' + esc(o.title) + '" autocomplete="off">' +
+            '<div class="btn-row center"><button type="button" class="btn ghost" data-r="0">取消</button><button type="submit" class="btn">好</button></div></form>';
+          const input = card.querySelector('#promptInput');
+          setTimeout(() => input.select(), 80);
+          card.querySelector('[data-r="0"]').addEventListener('click', () => close());
+          card.querySelector('#promptForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            answered = true;
+            resolve(input.value.trim() || null);
+            close();
+          });
+        },
+        { onClose: () => !answered && resolve(null) }
+      );
+    });
+
+  UI.worryModal = () => {
+    UI.showModal(
+      (card, close) => {
+        card.innerHTML =
+          '<h2 class="m-title">把煩惱交給水母</h2>' +
+          '<p class="m-text">寫下來，它會變成一顆光球沉進海裡，被最近的水母吃掉。寫了什麼，這裡不會保存。</p>' +
+          '<form class="m-form" id="worryForm"><textarea id="worryText" class="field" rows="4" maxlength="200" placeholder="' + esc(U.pick(C.worryPlaceholder)) + '" aria-label="煩惱"></textarea>' +
+          '<div class="btn-row center"><button type="button" class="btn ghost" data-r="0">算了</button><button type="submit" class="btn">交給水母</button></div></form>';
+        const ta = card.querySelector('#worryText');
+        const submit = () => {
+          const v = ta.value.trim();
+          if (!v) {
+            ta.focus();
+            return;
+          }
+          Game.sendWorry(v);
+          close();
+        };
+        card.querySelector('#worryForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          submit();
+        });
+        ta.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submit();
+        });
+        card.querySelector('[data-r="0"]').addEventListener('click', () => close());
+      },
+      { cls: 'wide' }
+    );
+  };
+
+  UI.welcomeModal = () => {
+    UI.showModal((card, close) => {
+      card.innerHTML =
+        '<h2 class="m-title">歡迎來到海月水母館</h2>' +
+        '<p class="m-text">這裡有三隻水母，和一個快要孵化的水螅體。從今天開始，牠們就交給你了。</p>' +
+        '<ul class="how"><li><b>點水</b>撒下浮游生物</li><li><b>按住水母滑動</b>摸摸牠</li><li><b>點水母</b>看牠的名片</li><li><b>寫下煩惱</b>讓水母吃掉</li></ul>' +
+        '<p class="m-foot">不用急。水母們在這裡漂了很久，也會一直在這裡。</p>' +
+        '<div class="btn-row center"><button class="btn">好，我知道了</button></div>';
+      card.querySelector('.btn').addEventListener('click', () => close());
+    });
+  };
+
+  UI.offlineModal = (o) => {
+    UI.showModal((card, close) => {
+      let html = '<h2 class="m-title">歡迎回來</h2><p class="m-text">你離開了 ' + U.duration(o.sec) + '。這段時間裡：</p><ul class="how">';
+      if (o.gain > 0) html += '<li>水母們一共發了 <b>' + U.fmt(o.gain) + '</b> 光</li>';
+      if (o.born.length) html += '<li><b>' + o.born.map((j) => '「' + esc(j.name) + '」').join('、') + '</b> 出生了</li>';
+      if (o.grown) html += '<li>有 <b>' + o.grown + '</b> 隻小水母長大了</li>';
+      html += '</ul>';
+      if (o.born.length) html += '<div class="born-row">' + o.born.map((j) => portraitImg(j.genes, j.growth, 72, 'portrait sm')).join('') + '</div>';
+      html += '<div class="btn-row center"><button class="btn">好</button></div>';
+      card.innerHTML = html;
+      card.querySelector('.btn').addEventListener('click', () => close());
+    });
+  };
+
+  UI.letterModal = () => {
+    if (!Game.letterDue()) return;
+    UI.showModal(
+      (card, close) => {
+        let html = '<div class="letter-seal" aria-hidden="true">' + icon('letter') + '</div><h2 class="m-title">今天的海，寄來了一封信</h2>';
+        html += '<p class="m-text">拆信之前，想先問問你：今天的心情是？</p><div class="moods">';
+        for (const m of C.moods) html += '<button class="mood-btn" data-mood="' + m.id + '" style="--m:' + m.color + '"><i></i><b>' + m.name + '</b><small>' + m.desc + '</small></button>';
+        html += '</div>';
+        card.innerHTML = html;
+        card.querySelectorAll('[data-mood]').forEach((b) =>
+          b.addEventListener('click', () => {
+            const r = Game.claimLetter(b.dataset.mood);
+            if (!r) return close();
+            A.discover();
+            let h = '<div class="letter"><p class="letter-reply">' + esc(r.reply) + '</p><p class="letter-main">' + esc(r.letter) + '</p><p class="letter-sign">— 海</p></div>';
+            h += '<div class="fact"><span>今天的水母小知識</span>' + esc(r.fact) + '</div>';
+            h += '<p class="gift"><span class="light-dot sm"></span>+' + r.reward + ' 光・' + r.gifts.join('・') + '・連續 ' + r.streak + ' 天</p>';
+            h += '<div class="btn-row center"><button class="btn">收下</button></div>';
+            card.innerHTML = h;
+            card.querySelector('.btn').addEventListener('click', () => close());
+          })
+        );
+      },
+      { cls: 'paper', dismissible: false }
+    );
+  };
+
+  UI.bottleModal = (text, reward) => {
+    UI.showModal(
+      (card, close) => {
+        card.innerHTML =
+          '<h2 class="m-title">漂流瓶裡的紙條</h2><div class="letter"><p class="letter-main">' + esc(text) + '</p></div>' +
+          (reward ? '<p class="gift"><span class="light-dot sm"></span>+' + reward + ' 光</p>' : '') +
+          '<div class="btn-row center"><button class="btn">收好</button></div>';
+        card.querySelector('.btn').addEventListener('click', () => close());
+      },
+      { cls: 'paper' }
+    );
+  };
+
+  const newbornCard = (title, lede, j, found) => {
+    const d = Gn.describe(j.genes);
+    let html = '<h2 class="m-title">' + title + '</h2><img class="portrait lg" src="' + UI.portrait(j.genes, Math.max(j.growth, 0.6), 160) + '" alt="">';
+    html += '<div class="nb-name">' + esc(j.name) + '</div><div class="nb-meta">' + starsHTML(d.stars) + ' ' + d.rarity + '</div>';
+    html += '<div class="chips center">' + traitChips(j.genes) + '</div>';
+    if (lede) html += '<p class="m-text">' + lede + '</p>';
+    if (found && found.length) html += '<p class="found">圖鑑新發現：' + found.map(Game.codexName).join('、') + '</p>';
+    return html;
+  };
+
+  UI.birthModal = (j, found) => {
+    UI.showModal((card, close) => {
+      card.innerHTML =
+        newbornCard('新生命！', (j.parents ? esc(j.parents.join(' 和 ')) + '的孩子，' : '') + '剛從水螅體脫離出發，現在還是一片小小的碟狀幼體。', j, found) +
+        '<div class="btn-row center"><button class="btn ghost" data-r="rename">取別的名字</button><button class="btn" data-r="ok">歡迎你</button></div>';
+      card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
+      card.querySelector('[data-r="rename"]').addEventListener('click', () => {
+        close();
+        setTimeout(async () => {
+          const name = await UI.prompt({ title: '幫牠取個名字', value: j.name, max: 12 });
+          if (name) Game.rename(j.id, name);
+        }, 320);
+      });
+    });
+  };
+
+  UI.catchModal = (j, found) => {
+    UI.showModal((card, close) => {
+      card.innerHTML =
+        newbornCard('撈到了！', '一隻從外面的海來的水母。' + (j.adult ? '已經是大人了。' : '還沒完全長大。'), j, found) +
+        '<div class="btn-row center"><button class="btn">歡迎你</button></div>';
+      card.querySelector('.btn').addEventListener('click', () => close());
+    });
+  };
+
+  UI.photoResult = (url) => {
+    UI.showModal(
+      (card, close) => {
+        let html = '<h2 class="m-title">拍好了</h2>';
+        if (url) {
+          html += '<img class="photo" src="' + url + '" alt="水族箱的照片">';
+          html += '<p class="m-text">長按圖片（手機）或按右鍵（電腦），就能存下來。</p>';
+        } else html += '<p class="m-text">這個瀏覽器沒辦法把畫面變成圖片。可以改用系統的截圖。</p>';
+        html += '<div class="btn-row center">';
+        if (url && (UI.downloads || !U.inFrame)) html += '<button class="btn ghost" data-r="save">存下照片</button>';
+        html += '<button class="btn" data-r="ok">繼續拍</button><button class="btn ghost" data-r="done">完成</button></div>';
+        card.innerHTML = html;
+        const saveBtn = card.querySelector('[data-r="save"]');
+        if (saveBtn) saveBtn.addEventListener('click', () => UI.savePhoto(url));
+        card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
+        card.querySelector('[data-r="done"]').addEventListener('click', () => {
+          close();
+          Game.stopPhoto();
+        });
+      },
+      { cls: 'wide' }
+    );
+    const f = $('flash');
+    f.classList.remove('go');
+    void f.offsetWidth;
+    f.classList.add('go');
+  };
+
+  UI.savePhoto = async (url) => {
+    const name = 'moon-jelly-' + U.today() + '.jpg';
+    if (UI.downloads) {
+      try {
+        const [head, b64] = url.split(',');
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const blob = new Blob([bytes], { type: head.slice(5, head.indexOf(';')) });
+        await UI.downloads.save({ filename: name, data: blob });
+        UI.toast('照片存好了。');
+      } catch (e) {
+        const code = e && e.code;
+        if (code === 'declined') return;
+        if (code === 'rate_limited') UI.toast('上一個存檔視窗還開著，等一下再試。');
+        else UI.toast('這裡沒辦法直接存檔，長按或按右鍵圖片也可以存。');
+      }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = url;
+    a.setAttribute('download', name);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  /* ================= 模式 ================= */
+
+  const setMode = (m) => {
+    document.body.classList.remove('mode-breath', 'mode-sleep', 'mode-photo', 'mode-arrange');
+    if (m) document.body.classList.add('mode-' + m);
+  };
+
+  UI.breathStart = (b) => {
+    UI.closeSheet();
+    UI.closePopovers();
+    setMode('breath');
+    $('breathUI').hidden = false;
+    $('breathCycle').textContent = '第 1 / ' + b.cycles + ' 輪・' + b.pat.name;
+  };
+  UI.breathStep = (word, b) => {
+    const w = $('breathWord');
+    w.textContent = word;
+    w.classList.remove('pop');
+    void w.offsetWidth;
+    w.classList.add('pop');
+    $('breathCycle').textContent = '第 ' + (b.cycle + 1) + ' / ' + b.cycles + ' 輪・' + b.pat.name;
+  };
+  UI.breathFrame = (b) => {
+    const ring = $('breathRing');
+    ring.style.transform = 'scale(' + (0.55 + 0.45 * (1 - b.c)).toFixed(3) + ')';
+    const n = Math.max(1, Math.ceil(b.dur - b.stepT));
+    const el = $('breathCount');
+    if (el.textContent !== String(n)) el.textContent = n;
+  };
+  UI.breathEnd = (done, reward) => {
+    $('breathUI').hidden = true;
+    setMode(null);
+    if (done) UI.toast(U.pick(C.breathDone), 'soft', '+' + reward + ' 光');
+  };
+
+  UI.sleepStart = (min) => {
+    UI.closePopovers();
+    setMode('sleep');
+    $('sleepUI').hidden = false;
+    $('sleepLine').textContent = U.pick(C.sleepLines);
+    $('sleepSub').textContent = '音樂會在 ' + min + ' 分鐘內慢慢變小。輕點畫面可以叫出按鈕。';
+    UI.sleepTick(true);
+    UI.sleepPeek();
+  };
+  UI.sleepTick = (force) => {
+    const d = new Date();
+    const t = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    const el = $('sleepClock');
+    if (force || el.textContent !== t) el.textContent = t;
+  };
+  UI.sleepPeek = () => {
+    const el = $('sleepUI');
+    el.classList.add('peek');
+    clearTimeout(UI.peekTimer);
+    UI.peekTimer = setTimeout(() => el.classList.remove('peek'), 5000);
+  };
+  UI.sleepEnd = () => {
+    $('sleepUI').hidden = true;
+    setMode(null);
+    UI.toast('早安，或者晚安。水母們都在。');
+  };
+
+  UI.photoStart = () => {
+    UI.closePopovers();
+    setMode('photo');
+    $('photoUI').hidden = false;
+  };
+  UI.photoEnd = () => {
+    $('photoUI').hidden = true;
+    setMode(null);
+  };
+
+  UI.arrangeUI = (on) => {
+    setMode(on ? 'arrange' : null);
+    $('arrangeBar').hidden = !on;
+  };
+
+  MJ.UI = UI;
+})((window.MJ = window.MJ || {}));

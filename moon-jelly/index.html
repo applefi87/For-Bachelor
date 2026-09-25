@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>海月水母館</title>
+<meta name="description" content="一座只屬於你的夜光水母缸：把煩惱餵給水母、和牠們一起呼吸、孕育從沒見過的新水母。">
+<meta name="theme-color" content="#051321">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,500&family=LXGW+WenKai+TC:wght@300;400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="intro">
+<!--BODY-->
+<canvas id="sea" aria-label="水族箱。點水面可以餵食，按住水母滑動可以摸摸牠。"></canvas>
+
+<header id="hud" class="hud">
+  <div class="brand">
+    <div class="logo">海月<span class="logo-en">Moon Jelly Aquarium</span></div>
+    <div class="light" title="光：水母們發出來的光，可以在商店使用">
+      <span class="light-dot"></span><span id="lightNum" class="light-num">0</span><span class="light-unit">光</span><span id="lightRate" class="light-rate">+0.0 / 秒</span>
+    </div>
+  </div>
+  <div class="hud-actions">
+    <button class="icon-btn letter-btn" id="btnLetter" hidden aria-label="拆開今天海的來信" data-icon="letter"></button>
+    <button class="icon-btn" id="btnSound" aria-label="關掉聲音"></button>
+    <button class="icon-btn" id="btnSettings" aria-label="聲音與設定" data-icon="settings"></button>
+  </div>
+</header>
+
+<div id="hint" class="hint" hidden><span id="hintText"></span><button id="hintClose" class="hint-x" aria-label="不再顯示提示">×</button></div>
+
+<div id="feedPop" class="popover" aria-hidden="true"></div>
+
+<nav id="dock" class="dock" aria-label="主要功能">
+  <button data-act="feed" data-icon="feed"><span class="lbl">餵食</span></button>
+  <button data-act="worry" data-icon="worry"><span class="lbl">煩惱</span></button>
+  <button data-act="breath" data-icon="breath"><span class="lbl">呼吸</span></button>
+  <button data-act="codex" data-icon="codex"><span class="lbl">圖鑑</span></button>
+  <button data-act="shop" data-icon="shop"><span class="lbl">商店</span></button>
+  <button data-act="more" data-icon="more"><span class="lbl">更多</span></button>
+</nav>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<aside id="sheet" class="sheet" role="dialog" aria-label="">
+  <header class="sheet-head">
+    <button class="icon-btn sm" id="sheetBack" hidden aria-label="上一頁" data-icon="back"></button>
+    <h2 id="sheetTitle"></h2>
+    <button class="icon-btn sm" id="sheetClose" aria-label="關閉" data-icon="close"></button>
+  </header>
+  <div id="sheetBody" class="sheet-body"></div>
+</aside>
+
+<div id="breathUI" class="breath-ui" hidden>
+  <div class="breath-stage">
+    <div id="breathRing" class="breath-ring"></div>
+    <div class="breath-text">
+      <div id="breathWord" class="breath-word">吸氣</div>
+      <div id="breathCount" class="breath-count">4</div>
+    </div>
+  </div>
+  <div id="breathCycle" class="breath-cycle"></div>
+  <button id="breathStop" class="btn ghost sm">結束</button>
+</div>
+
+<div id="sleepUI" class="sleep-ui" hidden>
+  <div id="sleepClock" class="sleep-clock">00:00</div>
+  <div id="sleepLine" class="sleep-line"></div>
+  <div id="sleepSub" class="sleep-sub"></div>
+  <button id="sleepStop" class="btn ghost sm">醒來</button>
+</div>
+
+<div id="photoUI" class="photo-ui" hidden>
+  <button id="photoClose" class="btn ghost sm photo-back">返回</button>
+  <button id="photoShot" class="shutter" aria-label="拍照"></button>
+</div>
+<div id="flash" class="flash" aria-hidden="true"></div>
+
+<div id="arrangeBar" class="arrange-bar" hidden>
+  <span>左右拖曳裝飾，放到喜歡的位置</span>
+  <button id="arrangeDone" class="btn sm">完成</button>
+</div>
+
+<div id="modal" class="modal" hidden><div id="modalCard" class="modal-card" role="dialog" aria-modal="true"></div></div>
+
+<section id="intro" class="intro-screen">
+  <div class="intro-inner">
+    <p class="intro-kicker">Moon Jelly Aquarium</p>
+    <h1 class="intro-title">海月</h1>
+    <p class="intro-sub">一座只屬於你的夜光水母館</p>
+    <p class="intro-line">把煩惱交給水母，把自己交給海。</p>
+    <button id="introStart" class="btn big">推開水族館的門</button>
+    <p class="intro-note">有聲音的體驗・戴上耳機更好</p>
+  </div>
+</section>
+<!--/BODY-->
+
+<script src="js/util.js"></script>
+<script src="js/content.js"></script>
+<script src="js/genes.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/world.js"></script>
+<script src="js/decor.js"></script>
+<script src="js/jelly.js"></script>
+<script src="js/polyp.js"></script>
+<script src="js/food.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script>MJ.Game.init();</script>
+</body>
+</html>
