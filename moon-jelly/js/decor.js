@@ -12,9 +12,13 @@
     anemone: { name: '螢光海葵', price: 120, max: 2, w: 70, h: 70, desc: '觸手的尖端，發著淡紫色的光。' },
     bottle: { name: '漂流瓶', price: 150, max: 1, w: 60, h: 40, tap: true, desc: '瓶子裡塞著一張紙條，點開來看看。' },
     lantern: { name: '石燈籠', price: 200, max: 1, w: 46, h: 110, tap: true, desc: '海底的一盞燈。點一下可以開關。' },
-    moonstone: { name: '月光石', price: 260, max: 1, w: 50, h: 56, desc: '在它旁邊游泳的水母，心情會比較好。' },
+    moonstone: { name: '月光石', price: 260, max: 1, w: 50, h: 56, hab: true, desc: '在它旁邊游泳的水母心情會比較好。晚上，燈籠魚會游過來繞著它。' },
     chest: { name: '寶箱', price: 320, max: 1, w: 64, h: 50, tap: true, desc: '偶爾冒出金色泡泡。戳破金泡泡會得到光。' },
     ship: { name: '小沉船', price: 520, max: 1, w: 170, h: 120, desc: '不知道從哪裡漂來的小船，窗戶還亮著。' },
+    // 棲地：不會變出生物，只會改變心情長出來的生物待在哪裡
+    seagrass: { name: '海草床', price: 180, max: 1, w: 150, h: 110, hab: true, desc: '一片低低的海草。海馬會聚過來，捲在同一片海草裡。' },
+    cave: { name: '礁石洞', price: 150, max: 1, w: 110, h: 64, hab: true, desc: '有陰影的小洞。寄居蟹受驚時會躲進去；白天，燈籠魚會待在陰影裡。' },
+    pearlbox: { name: '珍珠盒', price: 350, max: 1, w: 76, h: 40, hab: true, needsPearl: true, desc: '打開的貝殼，擺著你的珍珠。要先有一顆珍珠。' },
   };
 
   const D = { DEFS };
@@ -432,6 +436,124 @@
     ctx.beginPath();
     ctx.arc(0, -34 * u, 15 * u, 0, U.TAU);
     ctx.fill();
+  };
+
+  DRAW.seagrass = (ctx, d, u, t, world) => {
+    if (!d._blades) {
+      const r = U.seeded(d.seed);
+      d._blades = [];
+      for (let i = 0; i < 28; i++) {
+        d._blades.push({ x: (r() - 0.5) * 140, L: 40 + r() * 64, ph: r() * U.TAU, hue: 116 + r() * 26, sat: 0.3 + r() * 0.14, l: 0.26 + r() * 0.12, w: 2.2 + r() * 1.6 });
+      }
+    }
+    const dimK = 1 - world.dim * 0.5;
+    ctx.lineCap = 'round';
+    for (const b of d._blades) {
+      const L = b.L * u;
+      const sway = Math.sin(t * 0.7 + b.ph) * 9 * u + world.current * 6;
+      ctx.strokeStyle = U.hsla(b.hue, b.sat, b.l * dimK, 0.95);
+      ctx.lineWidth = b.w * u;
+      ctx.beginPath();
+      ctx.moveTo(b.x * u, 2);
+      ctx.quadraticCurveTo(b.x * u + sway * 0.4, -L * 0.55, b.x * u + sway, -L);
+      ctx.stroke();
+    }
+  };
+
+  DRAW.cave = (ctx, d, u, t, world) => {
+    const dimK = 1 - world.dim * 0.5;
+    ctx.save();
+    ctx.scale(u, u);
+    const g = ctx.createLinearGradient(0, -64, 0, 0);
+    g.addColorStop(0, 'hsl(205,18%,' + Math.round(30 * dimK) + '%)');
+    g.addColorStop(1, 'hsl(210,22%,' + Math.round(15 * dimK) + '%)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(-56, 2);
+    ctx.bezierCurveTo(-54, -34, -30, -64, 2, -62);
+    ctx.bezierCurveTo(34, -60, 54, -36, 56, 2);
+    ctx.closePath();
+    ctx.fill();
+    // 石頭上的紋理與小藤壺
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath();
+    ctx.ellipse(-16, -46, 18, 7, -0.3, 0, U.TAU);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(200,220,210,0.25)';
+    for (const [x, y] of [[20, -44], [28, -36], [-34, -26], [36, -18]]) {
+      ctx.beginPath();
+      ctx.arc(x, y, 2.2, 0, U.TAU);
+      ctx.fill();
+    }
+    // 洞口
+    const hg = ctx.createRadialGradient(0, -6, 2, 0, -8, 30);
+    hg.addColorStop(0, '#02070c');
+    hg.addColorStop(1, '#0a1520');
+    ctx.fillStyle = hg;
+    ctx.beginPath();
+    ctx.ellipse(2, 2, 27, 28, 0, Math.PI, U.TAU);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  DRAW.pearlbox = (ctx, d, u, t, world) => {
+    const G = MJ.Game;
+    if (!d._pt || t - d._pt > 5) {
+      d._pt = t;
+      d._pearls = G && G.eco ? G.eco.pearls().slice(0, 5) : [];
+    }
+    ctx.save();
+    ctx.scale(u, u);
+    // 上殼（打開）
+    ctx.fillStyle = '#7d7189';
+    ctx.beginPath();
+    ctx.moveTo(-36, -12);
+    ctx.quadraticCurveTo(-30, -44, 0, -46);
+    ctx.quadraticCurveTo(30, -44, 36, -12);
+    ctx.closePath();
+    ctx.fill();
+    const ng = ctx.createLinearGradient(-30, -40, 30, -14);
+    for (let i = 0; i <= 4; i++) ng.addColorStop(i / 4, U.hsla(t * 20 + i * 60, 0.35, 0.8, 0.9));
+    ctx.fillStyle = ng;
+    ctx.beginPath();
+    ctx.moveTo(-30, -14);
+    ctx.quadraticCurveTo(-25, -38, 0, -40);
+    ctx.quadraticCurveTo(25, -38, 30, -14);
+    ctx.closePath();
+    ctx.fill();
+    // 下殼
+    ctx.fillStyle = '#5a5066';
+    ctx.beginPath();
+    ctx.moveTo(-38, -12);
+    ctx.quadraticCurveTo(-36, 2, 0, 2);
+    ctx.quadraticCurveTo(36, 2, 38, -12);
+    ctx.closePath();
+    ctx.fill();
+    // 珍珠
+    const ps = d._pearls || [];
+    const n = ps.length;
+    for (let i = 0; i < n; i++) {
+      const layers = ps[i].layers;
+      const x = (i - (n - 1) / 2) * 12;
+      const y = -14;
+      const R = 5.2;
+      const F = MJ.Feelings;
+      ctx.globalCompositeOperation = 'lighter';
+      U.drawGlow(ctx, x, y, 26, F.TURNS[layers[layers.length - 1]] ? F.TURNS[layers[layers.length - 1]].hue : 40, 0.5, 0.8, 0.45);
+      ctx.globalCompositeOperation = 'source-over';
+      for (let k = layers.length - 1; k >= 0; k--) {
+        const tt = F.TURNS[layers[k]];
+        ctx.fillStyle = U.hsla(tt ? tt.hue : 40, 0.45, 0.82, 1);
+        ctx.beginPath();
+        ctx.arc(x, y, R * ((k + 1) / layers.length), 0, U.TAU);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath();
+      ctx.arc(x - 1.6, y - 1.6, 1.2, 0, U.TAU);
+      ctx.fill();
+    }
+    ctx.restore();
   };
 
   DRAW.chest = (ctx, d, u, t, world) => {

@@ -63,6 +63,7 @@
     document.body.classList.remove('ritual-open');
     setTimeout(() => {
       if (!R.open) el.hidden = true;
+      MJ.UI.pumpModals();
     }, 320);
   };
 
@@ -100,7 +101,8 @@
       '<h2 class="r-title" id="ritualTitle">現在心裡有什麼？</h2>' +
       '<textarea id="rRaw" class="field" rows="5" maxlength="600" data-focus placeholder="' + esc(U.pick(F.POUR_PLACEHOLDERS)) + '" aria-label="現在心裡有什麼">' + esc(d.raw) + '</textarea>' +
       '<label class="check"><input type="checkbox" id="rKeepRaw"' + (d.keepRaw ? ' checked' : '') + '><i aria-hidden="true"></i><span>把這段文字留下來<small>不勾的話，結束時它會溶進海裡，不會被保存</small></span></label>' +
-      '<div class="btn-row between"><button class="btn ghost" id="rSkip">不寫，直接選感覺</button><button class="btn" id="rNext">下一步</button></div>';
+      '<div class="btn-row between"><button class="btn ghost" id="rSkip">不寫，直接選感覺</button><button class="btn" id="rNext">下一步</button></div>' +
+      (d.resume ? '' : '<button class="link-btn" id="rQuick">' + icon('release', 'i') + '只想倒出來，不整理了</button>');
     const next = () => {
       d.raw = $('rRaw').value.trim();
       d.keepRaw = $('rKeepRaw').checked;
@@ -115,6 +117,23 @@
     $('rRaw').addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) next();
     });
+    // 最快的路：不取名字、不量強度，直接交給水母吃掉
+    const quick = $('rQuick');
+    if (quick)
+      quick.addEventListener('click', () => {
+        d.raw = $('rRaw').value.trim();
+        d.keepRaw = $('rKeepRaw').checked;
+        d.words = ['說不上來'];
+        d.fams = ['fog'];
+        d.fam = 'fog';
+        d.i0 = null;
+        d.i1 = null;
+        d.turn = 'release';
+        d.text = '';
+        d.quick = true;
+        if (F.isCrisis(d.raw)) R.show('care', 'finish');
+        else R.finish();
+      });
   };
 
   /* 真的撐不住的時候 */
@@ -129,12 +148,27 @@
       '<p class="r-note">你不用一個人撐著。如果有立即的危險，請撥 119 或 110。</p>' +
       '<div class="btn-row between"><button class="btn ghost" id="rCareBack">回去改一下</button><button class="btn" id="rCareGo">我知道了，繼續</button></div>';
     $('rCareBack').addEventListener('click', () => R.show(back));
-    $('rCareGo').addEventListener('click', () => R.show(next || 'name'));
+    $('rCareGo').addEventListener('click', () => (next === 'finish' ? R.finish() : R.show(next || 'name')));
   };
 
   /* ---------- 2. 取名字 ---------- */
   VIEW.name = (body) => {
-    let html = '<h2 class="r-title" id="ritualTitle">它比較像哪些字？</h2><p class="r-sub">選一到三個。越接近越好，不用完全準。</p><div class="fam-grid">';
+    let html = '<h2 class="r-title" id="ritualTitle">它比較像哪些字？</h2><p class="r-sub">選一到三個。越接近越好，不用完全準。</p>';
+    // 最近用過的字放最上面，手機上不用一直往下找
+    const recent = [];
+    const past = Game.state.entries;
+    for (let i = past.length - 1; i >= 0 && recent.length < 6; i--) {
+      for (const w of past[i].words || []) if (recent.length < 6 && !recent.includes(w) && F.familyOf(w)) recent.push(w);
+    }
+    if (recent.length) {
+      html += '<div class="recent-words"><span>最近用過</span><div class="words">';
+      for (const w of recent) {
+        const on = d.words.includes(w);
+        html += '<button class="word' + (on ? ' on' : '') + '" style="' + famStyle(F.familyOf(w)) + '" data-word="' + esc(w) + '" aria-pressed="' + on + '">' + esc(w) + '</button>';
+      }
+      html += '</div></div>';
+    }
+    html += '<div class="fam-grid">';
     for (const id of F.FAMILY_IDS) {
       const fam = F.FAMILIES[id];
       html += '<div class="fam" style="' + famStyle(id) + '"><div class="fam-name"><i></i>' + fam.name + '</div><div class="words">';
@@ -171,6 +205,7 @@
         MJ.Audio.chime(0);
       })
     );
+    if (d.i0 == null) d.i0 = 5;
     $('rI0').addEventListener('input', (e) => {
       d.i0 = +e.target.value;
       $('rIVal').textContent = d.i0;
@@ -222,16 +257,27 @@
 
   /* ---------- 3. 怎麼陪它 ---------- */
   VIEW.turn = (body) => {
-    const used = new Set((Game.state.entries || []).map((e) => e.turn).filter(Boolean));
-    const turns = F.turnsFor(d.fams.length ? d.fams : ['calm']);
+    const fams = d.fams.length ? d.fams : ['calm'];
+    const turns = F.orderTurns(fams, d.i0);
     const words = d.words.map((w) => '「' + esc(w) + '」').join('');
-    let html = '<h2 class="r-title" id="ritualTitle">你想怎麼陪' + words + '？</h2><p class="r-sub">沒有哪一種比較對。不同的陪法，會讓它長成不一樣的生物。</p><div class="turns">';
+    // 同一個家族最近兩週來了幾次（不算這一次）、最近三次是不是都只倒出來
+    const past = Game.state.entries.filter((e) => e.fam === d.fam && e.id !== d.id);
+    const recentSame = past.filter((e) => Date.now() - e.t < 14 * 86400000).length;
+    const last3 = past.filter((e) => e.turn).slice(-3);
+    const rec = F.recommend(d.fam, d.i0, recentSame);
+    const high = d.i0 != null && d.i0 >= 8;
+    let html = '<h2 class="r-title" id="ritualTitle">你想怎麼陪' + words + '？</h2><p class="r-sub">沒有哪一種比較對。不同的陪法，會讓它長成不一樣的生物。</p>';
+    if (last3.length === 3 && last3.every((e) => e.turn === 'release') && turns.includes('release')) {
+      html += '<p class="r-note soft">最近三次「' + esc(F.FAMILIES[d.fam].name) + '」，你都先把它倒出來。這次也可以；想的話，也能換一種，看看浪會不會不一樣。</p>';
+    }
+    html += '<div class="turns">';
     for (const id of turns) {
       const t = F.TURNS[id];
       const sp = F.SPECIES[t.species];
+      const sub = id === 'reframe' && high ? '浪小一點的時候再換殼也可以' : t.sub;
       html +=
-        '<button class="turn" data-turn="' + id + '" style="--h:' + t.hue + '">' + icon(id, 'i turn-i') +
-        '<span class="turn-main"><b>' + t.name + (used.size >= 2 && !used.has(id) ? '<em class="new">還沒試過</em>' : '') + '</b><small>' + t.sub + '</small></span>' +
+        '<button class="turn' + (id === rec ? ' rec' : '') + '" data-turn="' + id + '" style="--h:' + t.hue + '">' + icon(id, 'i turn-i') +
+        '<span class="turn-main"><b>' + t.name + (id === rec ? '<em class="new">這種時候常用</em>' : '') + '</b><small>' + sub + '</small></span>' +
         '<span class="turn-sp">' + sp.name + '</span></button>';
     }
     html += '</div>';
@@ -270,6 +316,14 @@
         '<p class="r-sub" id="rSurfTxt">看著這道浪就好，不用推開它。</p>' +
         '<canvas class="surf" id="rSurf" aria-label="一道會起伏的浪"></canvas>' +
         '<p class="r-note" id="rSurfCount">第 1 道浪</p>' + nav('好了', true);
+    } else if (d.turn === 'ground') {
+      html += '<p class="r-sub">先不用處理那個感覺。把注意力放回你所在的地方，每注意到一樣，就點一顆。</p><ol class="ground">';
+      F.GROUND.forEach(([verb, n, hint], i) => {
+        html += '<li data-row="' + i + '"><span class="g-lbl"><b>' + verb + '</b><small>' + hint + '</small></span><span class="g-dots">';
+        for (let k = 0; k < n; k++) html += '<button class="g-dot" data-g="' + i + '" aria-label="' + verb + '第 ' + (k + 1) + ' 樣" aria-pressed="false"></button>';
+        html += '</span></li>';
+      });
+      html += '</ol><p class="r-note" id="rGroundNote">前三行點完就可以往下，後面兩行想做再做。</p>' + nav('下一步', true);
     } else if (d.turn === 'reframe') {
       html += '<p class="r-sub">選一個殼背背看。同一件事，換個殼看起來會不太一樣。</p><div class="lenses">';
       for (const id of F.LENS_IDS) {
@@ -339,6 +393,24 @@
     });
 
     if (d.turn === 'allow') surf();
+    if (d.turn === 'ground') {
+      let taps = 0;
+      body.querySelectorAll('[data-g]').forEach((b) =>
+        b.addEventListener('click', () => {
+          if (b.classList.contains('on')) return;
+          b.classList.add('on');
+          b.setAttribute('aria-pressed', 'true');
+          taps++;
+          MJ.Audio.bell(MJ.Audio.degMidi(4 + Math.min(10, taps >> 1)), 0.05, 0, 0, null, 2);
+          const row = b.closest('li');
+          if (!row.querySelector('.g-dot:not(.on)')) row.classList.add('done');
+          const rows = body.querySelectorAll('.ground li');
+          const need = [0, 1, 2].every((i) => rows[i].classList.contains('done'));
+          next.disabled = !need;
+          if (need) $('rGroundNote').textContent = [...rows].every((r) => r.classList.contains('done')) ? '腳踩著地板。你在這裡。' : '可以往下了。後面兩行想做再做。';
+        })
+      );
+    }
     if (d.turn === 'reframe') {
       body.querySelectorAll('canvas[data-shell]').forEach((c) => {
         const dpr = Math.min(2, window.devicePixelRatio || 1);

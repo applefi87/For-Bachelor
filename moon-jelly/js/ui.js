@@ -75,6 +75,7 @@
       modalCard: $('modalCard'),
       feedPop: $('feedPop'),
       intro: $('intro'),
+      feelBtn: document.querySelector('#dock [data-act="worry"]'),
     };
 
     document.querySelectorAll('[data-icon]').forEach((el) => {
@@ -181,10 +182,15 @@
         if (Game.polyps.length) UI.toast('海底那個發光的小東西是水螅體，就快孵化了。');
       }, 14000);
     }
-    if (offline && (offline.gain > 0 || offline.born.length)) UI.offlineModal(offline);
-    if (Game.letterDue()) {
-      if (s.fresh) UI.el.letterBtn.hidden = false;
-      else UI.letterModal();
+    if (s.fresh) {
+      if (Game.letterDue()) UI.el.letterBtn.hidden = false;
+    } else {
+      // 回來的時候，所有事情合成一張卡，不要一個接一個跳出來
+      const off = offline && (offline.gain > 0 || offline.born.length) ? offline : null;
+      const steps = Game.dueSteps(true);
+      const letter = Game.letterDue();
+      const recap = Game.recapDue();
+      if (off || steps.length || letter || recap) UI.welcomeBack({ offline: off, steps, letter, recap });
     }
     pend.forEach((t) => UI.toast.apply(null, t));
   };
@@ -199,10 +205,14 @@
     if (Math.abs(target - UI.displayLight) < 1) UI.displayLight = target;
     const txt = U.fmt(UI.displayLight);
     if (UI.el.light.textContent !== txt) UI.el.light.textContent = txt;
-    const r = '+' + Game.rate.toFixed(Game.rate < 10 ? 1 : 0) + ' / 秒';
+    const r = '+' + U.fmt(Game.rate * 3600) + ' / 小時';
     if (UI.el.rate.textContent !== r) UI.el.rate.textContent = r;
     const due = Game.started && Game.letterDue();
     if (UI.el.letterBtn.hidden === due) UI.el.letterBtn.hidden = !due;
+    // 今天還沒記過心情：心情按鈕上亮一個很淡的小點（只提醒，不催）
+    const E = s.entries;
+    const nudge = Game.started && E.length > 0 && U.today(new Date(E[E.length - 1].t)) !== U.today();
+    if (UI.el.feelBtn && UI.el.feelBtn.classList.contains('nudge') !== nudge) UI.el.feelBtn.classList.toggle('nudge', nudge);
   };
 
   UI.updateSound = () => {
@@ -232,14 +242,31 @@
       UI.slowTick = 0.4;
       UI.refreshBound();
     }
+    UI.deferTick = (UI.deferTick || 0) - dt;
+    if (UI.deferred.length && UI.deferTick <= 0 && !UI.isQuiet() && !UI.modalOpenNow) {
+      UI.deferTick = 3.2;
+      UI.toast.apply(null, UI.deferred.shift());
+    }
     if (Game.mode === 'sleep') UI.sleepTick();
   };
 
   /* ================= 提示 ================= */
 
+  /** 剛陪完一份心情的時候，先安靜一下：成就和新發現晚一點再說 */
+  UI.quietUntil = 0;
+  UI.deferred = [];
+  UI.quiet = (sec) => {
+    UI.quietUntil = Math.max(UI.quietUntil, Date.now() + sec * 1000);
+  };
+  UI.isQuiet = () => Date.now() < UI.quietUntil || !!(MJ.Ritual && MJ.Ritual.open);
+
   UI.toast = (text, kind = 'soft', sub = null) => {
     if (UI.pendingToasts) {
       UI.pendingToasts.push([text, kind, sub]);
+      return;
+    }
+    if ((kind === 'achievement' || kind === 'discover') && UI.isQuiet()) {
+      UI.deferred.push([text, kind, sub]);
       return;
     }
     const box = UI.el.toasts;
@@ -453,7 +480,7 @@
       html += '</div>';
       html += '<dl class="facts">';
       html += '<div><dt>親密度</dt><dd><span data-bind="affection">' + Math.floor(j.affection) + '</span></dd></div>';
-      html += '<div><dt>吃過的煩惱</dt><dd>' + j.worryFed + ' 個</dd></div>';
+      html += '<div><dt>吃掉的心情</dt><dd>' + j.worryFed + ' 份</dd></div>';
       html += '<div><dt>牠的音</dt><dd>' + noteName(g) + '</dd></div>';
       html += '<div><dt>觸手</dt><dd>' + g.tentacles + ' 條</dd></div>';
       html += '<div><dt>來到這裡</dt><dd>' + dateStr(j.born) + '</dd></div>';
@@ -468,6 +495,7 @@
       html += '<button class="btn ghost quiet" data-a="release">回到大海</button>';
       html += '</div>';
       html += '<p class="note" data-bind="breedNote"></p>';
+      if (j.origin) html += '<p class="note">由心情變成的水母不佔水族箱的名額，也不替你賺光。牠只是陪著。</p>';
     }
     body.innerHTML = html;
 
@@ -634,17 +662,30 @@
   const priceBtn = (price, label, extra = '') =>
     '<button class="btn sm price" data-price="' + price + '"' + extra + '>' + '<span class="light-dot sm"></span>' + U.fmt(price) + (label ? '<span class="price-lbl">' + label + '</span>' : '') + '</button>';
 
+  const habitatRow = (k, have) => {
+    const def = MJ.Decor.DEFS[k];
+    const n = Game.decorCount(k);
+    const locked = def.needsPearl && !Game.eco.pearls().length;
+    let html = '<li class="row"><canvas class="thumb" data-decor="' + k + '" width="72" height="72" aria-hidden="true"></canvas><div class="row-main"><div class="row-title">' + def.name + '</div>';
+    html += '<div class="row-sub">' + def.desc + '</div>' + (have ? '<div class="row-sub clue">' + esc(have) + '</div>' : '') + '</div>';
+    if (n >= def.max) html += '<button class="btn sm" disabled data-lock="1">已擁有</button>';
+    else if (locked) html += '<button class="btn sm" disabled data-lock="1">還沒有珍珠</button>';
+    else html += priceBtn(def.price, '', ' data-buy="decor" data-id="' + k + '"');
+    return html + '</li>';
+  };
+
   RENDER.shop = (body, tab) => {
     tab = tab || UI.shopTab || 'jelly';
     UI.shopTab = tab;
     const s = Game.state;
     const tabs = [
       ['jelly', '水母'],
-      ['food', '零食'],
+      ['habitat', '棲地'],
       ['decor', '裝飾'],
+      ['food', '零食'],
       ['theme', '主題'],
     ];
-    let html = '<div class="wallet"><span class="light-dot"></span><span>' + U.fmt(s.light) + ' 光</span><span class="wallet-sub">水母們每秒會發出 ' + Game.rate.toFixed(1) + ' 光</span></div>';
+    let html = '<div class="wallet"><span class="light-dot"></span><span>' + U.fmt(s.light) + ' 光</span><span class="wallet-sub">水母們每小時大約發出 ' + U.fmt(Game.rate * 3600) + ' 光</span></div>';
     html += '<div class="tabs" role="tablist">';
     for (const [id, name] of tabs) html += '<button role="tab" class="tab' + (id === tab ? ' on' : '') + '" aria-selected="' + (id === tab) + '" data-tab="' + id + '">' + name + '</button>';
     html += '</div>';
@@ -675,12 +716,32 @@
       if (s.decor.length) html += '<button class="btn ghost wide" data-arrange="1">' + icon('arrange') + '調整擺設的位置</button>';
       html += '<ul class="rows shop-rows">';
       for (const [k, def] of Object.entries(MJ.Decor.DEFS)) {
+        if (def.hab) continue;
         const n = Game.decorCount(k);
         html += '<li class="row"><canvas class="thumb" data-decor="' + k + '" width="72" height="72" aria-hidden="true"></canvas><div class="row-main"><div class="row-title">' + def.name + (def.max > 1 ? '<small>' + n + '/' + def.max + '</small>' : '') + '</div>';
         html += '<div class="row-sub">' + def.desc + '</div></div>';
         html += n >= def.max ? '<button class="btn sm" disabled data-lock="1">' + (def.max > 1 ? '已滿' : '已擁有') + '</button>' : priceBtn(def.price, '', ' data-buy="decor" data-id="' + k + '"');
         html += '</li>';
       }
+      html += '</ul>';
+    } else if (tab === 'habitat') {
+      // 棲地只改變生物待在哪裡；生物本身、陪法、潮汐圖，永遠不用光換
+      html += '<p class="lede">棲地不會變出生物，生物只從你的心情長出來。棲地會改變牠們待的地方，讓牠們之間多一點關係。</p>';
+      const E = Game.eco;
+      const have = {
+        seagrass: E.seahorses.length ? '現在有 ' + E.seahorses.length + ' 隻海馬。' : '還沒有海馬：用「先著陸」陪過一次心情，就會有。',
+        cave: E.crabs.length || E.lanterns.length ? '現在有 ' + E.crabs.length + ' 隻寄居蟹、' + E.lanterns.length + ' 條燈籠魚。' : '寄居蟹來自「換個殼看看」，燈籠魚來自「聽聽它要什麼」。',
+        moonstone: E.lanterns.length ? '現在有 ' + E.lanterns.length + ' 條燈籠魚。' : '燈籠魚來自「聽聽它要什麼」。',
+        pearlbox: E.pearls().length ? '你有 ' + E.pearls().length + ' 顆珍珠。' : '還沒有珍珠。',
+      };
+      html += '<ul class="rows shop-rows">';
+      for (const k of ['seagrass', 'cave', 'moonstone']) html += habitatRow(k, have[k]);
+      const shellToday = s.eco.shellDay === U.today();
+      html += '<li class="row"><canvas class="thumb" data-shell="nautilus" width="72" height="72" aria-hidden="true"></canvas><div class="row-main"><div class="row-title">一個空殼</div>';
+      html += '<div class="row-sub">放在沙地上。最大的寄居蟹會搬進去，舊殼一路讓給小一號的。一天可以放一個。</div><div class="row-sub clue">' + (E.crabs.length ? '現在有 ' + E.crabs.length + ' 隻寄居蟹。' : '還沒有寄居蟹：殼會先在沙地上等。') + '</div></div>';
+      html += shellToday ? '<button class="btn sm" disabled data-lock="1">明天再來</button>' : priceBtn(Game.SHELL_PRICE, '', ' data-buy="shell"');
+      html += '</li>';
+      html += habitatRow('pearlbox', have.pearlbox);
       html += '</ul>';
     } else if (tab === 'theme') {
       html += '<ul class="theme-grid">';
@@ -700,6 +761,16 @@
     body.innerHTML = html;
 
     body.querySelectorAll('canvas[data-decor]').forEach((c) => UI.drawDecorThumb(c, c.dataset.decor));
+    body.querySelectorAll('canvas[data-shell]').forEach((c) => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      c.width = 72 * dpr;
+      c.height = 72 * dpr;
+      const g = c.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.translate(36, 38);
+      g.scale(2.2, 2.2);
+      MJ.Eco.drawShell(g, c.dataset.shell, 1, 1);
+    });
     body.querySelectorAll('[data-tab]').forEach((b) =>
       b.addEventListener('click', () => {
         A.click();
@@ -722,6 +793,7 @@
           return;
         }
         if (kind === 'tank') Game.upgradeTank();
+        else if (kind === 'shell') Game.buyShell();
         else if (kind === 'food') Game.buyFood(id);
         else if (kind === 'decor') Game.buyDecor(id);
         else if (kind === 'theme') Game.buyTheme(id);
@@ -771,7 +843,8 @@
     const pat = Game.BREATHS[sel.id];
     const secs = pat.seq.reduce((a, [, d]) => a + d, 0) * sel.cycles;
     html += '<button class="btn wide" id="breathGo">開始（約 ' + U.duration(secs) + '）</button>';
-    html += '<p class="note">完成後會得到 ' + 15 * sel.cycles + ' 光。做完五分鐘內出生的孩子，好像會特別不一樣。</p>';
+    const left = Game.breathLeft();
+    html += '<p class="note">' + (left ? '完成後會得到 ' + Game.breathReward(sel.cycles) + ' 光（今天還有 ' + left + ' 次）。' : '今天的光已經給過了，呼吸還是一樣好。') + '做完五分鐘內出生的孩子，好像會特別不一樣。</p>';
     body.innerHTML = html;
     body.querySelectorAll('.choice').forEach((b) =>
       b.addEventListener('click', () => {
@@ -873,7 +946,7 @@
     let html = '<ul class="ach-list">';
     for (const a of Game.ACH) {
       const done = s.achievements[a.id];
-      html += '<li class="ach' + (done ? ' done' : '') + '">' + icon('trophy') + '<div><b>' + a.name + '</b><small>' + a.desc + '</small></div><span class="ach-r">' + (done ? dateStr(done) : '+' + a.reward) + '</span></li>';
+      html += '<li class="ach' + (done ? ' done' : '') + '">' + icon('trophy') + '<div><b>' + a.name + '</b><small>' + a.desc + '</small></div><span class="ach-r">' + (done ? dateStr(done) : a.reward ? '+' + a.reward : '紀念') + '</span></li>';
     }
     html += '</ul>';
     body.innerHTML = html;
@@ -901,7 +974,7 @@
     }
     html += '</div><div class="legend">';
     for (const m of C.moods) html += '<span><i style="background:' + m.color + '"></i>' + m.name + '</span>';
-    html += '</div><dl class="facts two"><div><dt>連續</dt><dd>' + (s.daily.streak || 0) + ' 天</dd></div><div><dt>最長紀錄</dt><dd>' + (s.daily.best || 0) + ' 天</dd></div><div><dt>拆過的信</dt><dd>' + s.stats.letters + ' 封</dd></div><div><dt>被吃掉的煩惱</dt><dd>' + s.stats.worries + ' 個</dd></div></dl>';
+    html += '</div><dl class="facts two"><div><dt>連續</dt><dd>' + (s.daily.streak || 0) + ' 天</dd></div><div><dt>最長紀錄</dt><dd>' + (s.daily.best || 0) + ' 天</dd></div><div><dt>拆過的信</dt><dd>' + s.stats.letters + ' 封</dd></div><div><dt>記下的心情</dt><dd>' + (s.stats.rituals || 0) + ' 份</dd></div></dl>';
     body.innerHTML = html;
     return '心情日記';
   };
@@ -975,7 +1048,9 @@
       '<h3 class="sub-h">可以做的事</h3><ul class="facts-list">' +
       '<li>點水撒下浮游生物；按住拖曳可以撒一整排。水面也是一把琴：越右邊，音越高。</li>' +
       '<li>按住水母輕輕滑動，就是摸摸。被愛得夠多的水母，孩子會帶著愛心。</li>' +
-      '<li>按「心情」替感覺取名字，再選一種方式陪它。不同的陪法，會讓它長成不同的生物：水母、寄居蟹、燈籠魚、小丑魚、海龜、藍眼淚、珊瑚、瓶中信。</li>' +
+      '<li>按「心情」替感覺取名字，再選一種方式陪它。不同的陪法，會讓它長成不同的生物：水母、海馬、寄居蟹、燈籠魚、小丑魚、海龜、藍眼淚、珊瑚、瓶中信。</li>' +
+      '<li>光很稀有。水母會慢慢發光；每天前三份心情各給 30 光，不管是什麼感覺、選了哪種陪法、還是還沒決定，都一樣。心情長出來的生物、陪法和潮汐圖，永遠不用光換。</li>' +
+      '<li>商店的「棲地」不會變出生物，只會改變牠們待的地方：海馬聚在海草床、寄居蟹躲進礁石洞、燈籠魚白天待在洞的陰影裡，晚上繞著月光石。</li>' +
       '<li>兩隻長大的水母可以一起孕育水螅體，孩子會混合兩邊的樣子。</li>' +
       '<li>圖鑑有 ' + Gn.codexTotal() + ' 項，特殊體質都藏著配方，看提示慢慢找。</li>' +
       '<li>每天第一次來，會收到一封海的來信。</li></ul>' +
@@ -983,9 +1058,12 @@
       '<h3 class="sub-h">心情的設計，參考了哪些心理學</h3><ul class="facts-list">' +
       '<li><b>替感覺取名字</b>：把感覺說出來、說得越精準，越不容易被它淹沒（情緒標記、情緒顆粒度）。</li>' +
       '<li><b>沒有唯一正確的陪法</b>：研究發現，能依情況換著用不同方法的人，比只會用一種的人過得好（情緒調節彈性）。所以每一種陪法都會長出生物，章魚只在你用過很多種時出現。</li>' +
-      '<li><b>讓它待著</b>來自接納與「觀浪」；<b>換個殼</b>來自認知重評與拉開距離；<b>聽它要什麼</b>來自情緒背後的需要；<b>對自己溫柔</b>是自我慈悲的三個部分；<b>一件小事</b>是行為活化；<b>品嚐、感謝、留給以後</b>是正向情緒的保存與回想。</li>' +
+      '<li><b>讓它待著</b>來自接納與「觀浪」；<b>先著陸</b>是 5-4-3-2-1 著陸技巧；<b>換個殼</b>來自認知重評與拉開距離；<b>聽它要什麼</b>來自情緒背後的需要；<b>對自己溫柔</b>是自我慈悲的三個部分；<b>一件小事</b>是行為活化；<b>品嚐、感謝、留給以後</b>是正向情緒的保存與回想。</li>' +
+      '<li><b>陪法的順序會跟著強度變</b>：浪很大的時候，換角度想比較難做到，所以先穩住的方法會排在前面；浪小的時候，想一想的方法排在前面。每一種都一直選得到。</li>' +
+      '<li><b>珍珠</b>要七層以上、用過三種陪法才會結成，它記錄的是你陪它走過的路，不是它來了幾次。一直只「倒出來」的話，會輕輕提一句：研究發現，只是發洩不一定會讓感覺變小。</li>' +
       '<li><b>前後各量一次</b>：看看浪有沒有變化。久了，潮汐圖會告訴你，對你自己來說哪一種陪法比較有用。</li>' +
-      '<li>如果真的撐不住，請打給安心專線 1925、生命線 1995 或張老師 1980。這裡不能取代真的人。</li></ul>' +
+      '<li><b>潮汐圖</b>只在同一種陪法用過三次以上才畫出來，也可以分開看強的時候和不那麼強的時候：浪很大時，下一次量本來就容易低一點。</li>' +
+      '<li>如果真的撐不住，請打給安心專線 1925、生命線 1995、張老師 1980；遇到家暴、性侵害或兒少受傷害，可以打 113。這裡不能取代真的人。</li></ul>' +
       '<p class="note">所有資料只存在你這台裝置的瀏覽器裡。儀式一開始寫的那段話，預設不會被保存。</p>';
     return '關於海月';
   };
@@ -995,7 +1073,8 @@
 
   UI.modalQueue = [];
   UI.showModal = (render, opts = {}) => {
-    if (UI.modalOpenNow) {
+    // 同一時間只開一個；正在陪心情的時候，其他視窗（例如孵化）等儀式結束再說
+    if (UI.modalOpenNow || (MJ.Ritual && MJ.Ritual.open)) {
       UI.modalQueue.push([render, opts]);
       return;
     }
@@ -1010,6 +1089,13 @@
     requestAnimationFrame(() => UI.el.modal.classList.add('open'));
     const f = card.querySelector('[autofocus], textarea, input, .btn');
     if (f) setTimeout(() => f.focus({ preventScroll: true }), 60);
+  };
+
+  /** 儀式關上之後，把排隊的視窗叫出來 */
+  UI.pumpModals = () => {
+    if (UI.modalOpenNow || (MJ.Ritual && MJ.Ritual.open)) return;
+    const next = UI.modalQueue.shift();
+    if (next) UI.showModal(next[0], next[1]);
   };
 
   UI.closeModal = () => {
@@ -1071,37 +1157,6 @@
       );
     });
 
-  UI.worryModal = () => {
-    UI.showModal(
-      (card, close) => {
-        card.innerHTML =
-          '<h2 class="m-title">把煩惱交給水母</h2>' +
-          '<p class="m-text">寫下來，它會變成一顆光球沉進海裡，被最近的水母吃掉。寫了什麼，這裡不會保存。</p>' +
-          '<form class="m-form" id="worryForm"><textarea id="worryText" class="field" rows="4" maxlength="200" placeholder="' + esc(U.pick(C.worryPlaceholder)) + '" aria-label="煩惱"></textarea>' +
-          '<div class="btn-row center"><button type="button" class="btn ghost" data-r="0">算了</button><button type="submit" class="btn">交給水母</button></div></form>';
-        const ta = card.querySelector('#worryText');
-        const submit = () => {
-          const v = ta.value.trim();
-          if (!v) {
-            ta.focus();
-            return;
-          }
-          Game.sendWorry(v);
-          close();
-        };
-        card.querySelector('#worryForm').addEventListener('submit', (e) => {
-          e.preventDefault();
-          submit();
-        });
-        ta.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submit();
-        });
-        card.querySelector('[data-r="0"]').addEventListener('click', () => close());
-      },
-      { cls: 'wide' }
-    );
-  };
-
   UI.welcomeModal = () => {
     UI.showModal((card, close) => {
       card.innerHTML =
@@ -1109,23 +1164,66 @@
         '<p class="m-text">這裡有三隻水母，和一個快要孵化的水螅體。從今天開始，牠們就交給你了。</p>' +
         '<ul class="how"><li><b>點水</b>撒下浮游生物</li><li><b>按住水母滑動</b>摸摸牠</li><li><b>點水母</b>看牠的名片</li><li><b>按「心情」</b>替感覺取名字，看它長成什麼生物</li></ul>' +
         '<p class="m-foot">不用急。水母們在這裡漂了很久，也會一直在這裡。</p>' +
-        '<div class="btn-row center"><button class="btn">好，我知道了</button></div>';
-      card.querySelector('.btn').addEventListener('click', () => close());
+        '<div class="btn-row center"><button class="btn ghost" data-w="feel">' + icon('heartsea') + '我現在有感覺</button><button class="btn" data-w="ok">好，我知道了</button></div>';
+      card.querySelector('[data-w="ok"]').addEventListener('click', () => close());
+      card.querySelector('[data-w="feel"]').addEventListener('click', () => {
+        close();
+        setTimeout(() => MJ.Ritual.start(), 300);
+      });
     });
   };
 
-  UI.offlineModal = (o) => {
-    UI.showModal((card, close) => {
-      let html = '<h2 class="m-title">歡迎回來</h2><p class="m-text">你離開了 ' + U.duration(o.sec) + '。這段時間裡：</p><ul class="how">';
-      if (o.gain > 0) html += '<li>水母們一共發了 <b>' + U.fmt(o.gain) + '</b> 光</li>';
-      if (o.born.length) html += '<li><b>' + o.born.map((j) => '「' + esc(j.name) + '」').join('、') + '</b> 出生了</li>';
-      if (o.grown) html += '<li>有 <b>' + o.grown + '</b> 隻小水母長大了</li>';
-      html += '</ul>';
-      if (o.born.length) html += '<div class="born-row">' + o.born.map((j) => portraitImg(j.genes, j.growth, 72, 'portrait sm')).join('') + '</div>';
-      html += '<div class="btn-row center"><button class="btn">好</button></div>';
-      card.innerHTML = html;
-      card.querySelector('.btn').addEventListener('click', () => close());
-    });
+  /** 回來的時候：離開時發生的事、該問的小事、今天的信、這週的回顧，合成一張卡 */
+  UI.welcomeBack = (o) => {
+    let after = null;
+    UI.showModal(
+      (card, close) => {
+        let html = '<h2 class="m-title">歡迎回來</h2>';
+        const off = o.offline;
+        if (off) {
+          html += '<p class="m-text">你離開了 ' + U.duration(off.sec) + '。</p><ul class="how">';
+          if (off.gain > 0) html += '<li>水母們一共發了 <b>' + U.fmt(off.gain) + '</b> 光</li>';
+          if (off.born.length) html += '<li><b>' + off.born.map((j) => '「' + esc(j.name) + '」').join('、') + '</b> 出生了</li>';
+          if (off.grown) html += '<li>有 <b>' + off.grown + '</b> 隻小水母長大了</li>';
+          html += '</ul>';
+          if (off.born.length) html += '<div class="born-row">' + off.born.map((j) => portraitImg(j.genes, j.growth, 72, 'portrait sm')).join('') + '</div>';
+        }
+        if (o.steps.length) {
+          html += '<div class="wb-steps"><div class="wb-h">' + icon('step') + '之前想做的小事，後來呢？怎麼樣都可以。</div>';
+          for (const e of o.steps) {
+            html += '<div class="wb-step" data-id="' + e.id + '"><b>' + esc(e.step.what) + '</b><span class="wb-btns">' +
+              '<button class="btn sm ghost" data-s="dropped">不需要了</button><button class="btn sm ghost" data-s="later">還沒</button><button class="btn sm" data-s="done">做到了</button></span></div>';
+          }
+          html += '</div>';
+        }
+        html += '<div class="wb-actions">';
+        if (o.letter) html += '<button class="btn" data-w="letter">' + icon('letter') + '拆今天的信</button>';
+        if (o.recap) html += '<button class="btn ghost" data-w="recap">' + icon('tides') + '這一週的回顧</button>';
+        html += '<button class="btn ghost" data-w="feel">' + icon('heartsea') + '我現在有感覺</button>';
+        html += '</div><div class="btn-row center"><button class="btn ghost quiet" data-w="ok">先看看水母</button></div>';
+        card.innerHTML = html;
+        const said = { done: '做到了。海龜出發去旅行了。', later: '好，不急。', dropped: '好，先放下。' };
+        card.querySelectorAll('.wb-step').forEach((row) =>
+          row.querySelectorAll('[data-s]').forEach((b) =>
+            b.addEventListener('click', () => {
+              const st = b.dataset.s;
+              row.querySelector('.wb-btns').innerHTML = '<small>' + said[st] + '</small>';
+              Game.setStep(row.dataset.id, st, true);
+            })
+          )
+        );
+        card.querySelectorAll('[data-w]').forEach((b) =>
+          b.addEventListener('click', () => {
+            const w = b.dataset.w;
+            if (w === 'letter') after = () => UI.letterModal();
+            else if (w === 'recap') after = () => UI.recapModal();
+            else if (w === 'feel') after = () => MJ.Ritual.start();
+            close();
+          })
+        );
+      },
+      { cls: 'wide', onClose: () => after && setTimeout(after, 60) }
+    );
   };
 
   UI.letterModal = () => {
@@ -1337,9 +1435,9 @@
 
   /* ================= 心情長出來的生態 ================= */
 
-  const SPECIES_ICON = { larva: 'larva', jelly: 'allow', crab: 'reframe', lantern: 'need', clown: 'kind', turtle: 'step', tears: 'release', coral: 'savor', bottle: 'keep', oyster: 'pearl', octopus: 'octo' };
-  const SPECIES_HUE = { larva: 200, jelly: 222, crab: 30, lantern: 268, clown: 340, turtle: 100, tears: 186, coral: 48, bottle: 160, oyster: 300, octopus: 15 };
-  const KIND_SPECIES = { larva: 'larva', crab: 'crab', shell: 'crab', lantern: 'lantern', clown: 'clown', anemone: 'clown', turtle: 'turtle', coral: 'coral', oyster: 'oyster', octopus: 'octopus', bottle: 'bottle' };
+  const SPECIES_ICON = { larva: 'larva', jelly: 'allow', crab: 'reframe', lantern: 'need', clown: 'kind', turtle: 'step', seahorse: 'ground', tears: 'release', coral: 'savor', bottle: 'keep', oyster: 'pearl', octopus: 'octo' };
+  const SPECIES_HUE = { larva: 200, jelly: 222, crab: 30, lantern: 268, clown: 340, turtle: 100, seahorse: 300, tears: 186, coral: 48, bottle: 160, oyster: 45, octopus: 15 };
+  const KIND_SPECIES = { larva: 'larva', crab: 'crab', shell: 'crab', lantern: 'lantern', clown: 'clown', anemone: 'clown', turtle: 'turtle', seahorse: 'seahorse', coral: 'coral', oyster: 'oyster', octopus: 'octopus', bottle: 'bottle' };
   const timeStr = (ts) => {
     const d = new Date(ts);
     return d.getMonth() + 1 + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
@@ -1353,8 +1451,8 @@
   /** 一份心情的小卡：字、時間、浪的變化 */
   UI.entryCard = (e) => {
     const fam = F.FAMILIES[e.fam] || F.FAMILIES.calm;
-    let wave = '浪 ' + e.i0;
-    if (e.turn && e.i1 != null && e.i1 !== e.i0) wave += ' → ' + e.i1;
+    let wave = e.i0 == null ? '沒有量強度' : '浪 ' + e.i0;
+    if (e.i0 != null && e.turn && e.i1 != null && e.i1 !== e.i0) wave += ' → ' + e.i1;
     let html = '<div class="entry-card" style="--h:' + fam.hue + ';--s:' + Math.round(Math.max(0.3, fam.sat) * 100) + '%">';
     html += '<div class="entry-words">' + e.words.map((w) => '「' + esc(w) + '」').join('') + '</div>';
     html += '<div class="entry-meta">' + timeStr(e.t) + '・' + wave + '</div>';
@@ -1383,6 +1481,9 @@
       ['珊瑚礁', '收留', '雀鯛'],
       ['海葵', '保護', '小丑魚'],
       ['海龜', '帶殼給', '寄居蟹'],
+      ['海草床', '聚集', '海馬'],
+      ['礁石洞', '替', '寄居蟹和燈籠魚遮蔭'],
+      ['月光石', '在晚上吸引', '燈籠魚'],
       ['大的寄居蟹', '把舊殼讓給', '小一號的'],
       ['同一種需要', '聚成', '一群燈籠魚'],
       ['同一種感覺', '一層層長成', '珍珠'],
@@ -1442,6 +1543,9 @@
         actions.push('<button class="btn ghost" data-act="drop">不需要了</button>');
         html += '<p class="note">還沒做也沒關係，牠會在沙灘上等。</p>';
       }
+    } else if (kind === 'seahorse') {
+      title = '海馬';
+      html += '<p class="lede">牠用尾巴捲著一根海草' + (Game.eco.bedX() != null ? '，和其他海馬待在同一片海草床裡' : '') + '。</p>' + UI.entryCard(c.entry);
     } else if (kind === 'coral') {
       const e = c.item.entry;
       title = e.turn === 'thank' ? '腦珊瑚' : '珊瑚枝';
@@ -1449,8 +1553,9 @@
     } else if (kind === 'oyster') {
       const fam = F.FAMILIES[c.fam];
       title = '「' + fam.name + '」的珍珠貝';
+      const kinds = new Set(c.layers).size;
       html += '<p class="lede">「' + fam.name + '」來了很多次。每來一次，珍珠就多一層；那一層的顏色，是你那一次選的陪法。</p>';
-      html += '<div class="pearl-row"><canvas class="pearl-cv" id="pearlCv" width="120" height="120" aria-label="珍珠的樣子"></canvas><div><b>' + c.layers.length + ' / 7 層</b><small>已經完成 ' + c.pearls + ' 顆</small></div></div>';
+      html += '<div class="pearl-row"><canvas class="pearl-cv" id="pearlCv" width="120" height="120" aria-label="珍珠的樣子"></canvas><div><b>' + c.layers.length + ' 層・' + kinds + ' 種陪法</b><small>' + (c.pearls ? '已經結成 ' + c.pearls + ' 顆・' : '') + '七層以上、用過三種陪法，就會結成一顆</small></div></div>';
       html += '<ol class="layers">' + c.layers.map((t) => '<li>' + turnChip(t) + '</li>').join('') + '</ol>';
     } else if (kind === 'octopus') {
       html += '<p class="lede">這個月，你用過這些方式陪自己的感覺：</p><div class="chips">' + c.turns.map((t) => turnChip(t)).join('') + '</div>';
@@ -1496,9 +1601,10 @@
     U.drawGlow(g, c, c, size * 1.1, layers.length ? F.TURNS[layers[layers.length - 1]].hue : 40, 0.4, 0.8, 0.6);
     g.globalCompositeOperation = 'source-over';
     const n = Math.max(1, layers.length);
+    const den = Math.max(7, n);
     for (let i = n - 1; i >= 0; i--) {
       const t = layers[i];
-      const r = R * ((i + 1) / 7);
+      const r = R * ((i + 1) / den);
       g.fillStyle = t ? U.hsla(F.TURNS[t].hue, 0.5, 0.8 - i * 0.015, 1) : 'rgba(255,255,255,0.2)';
       g.beginPath();
       g.arc(c, c, Math.max(3, r), 0, U.TAU);
@@ -1507,9 +1613,10 @@
       g.lineWidth = 0.8;
       g.stroke();
     }
+    const outer = Math.max(3, R * (n / den));
     g.fillStyle = 'rgba(255,255,255,0.7)';
     g.beginPath();
-    g.arc(c - R * 0.35, c - R * 0.35, R * 0.16, 0, U.TAU);
+    g.arc(c - outer * 0.35, c - outer * 0.35, Math.max(1, outer * 0.16), 0, U.TAU);
     g.fill();
   };
 
@@ -1522,6 +1629,9 @@
     if (t === 'allow') {
       head = '變成了一隻小水母';
       line = '牠跟著水流，慢慢地漂。' + (c && c.genes && c.genes.special === 'moonlight' ? '牠的傘，帶著一點月光。' : '');
+    } else if (t === 'ground') {
+      head = '變成了一隻海馬';
+      line = '牠用尾巴捲住一根海草，在水流裡待穩了。';
     } else if (t === 'reframe') {
       head = '變成了一隻寄居蟹';
       line = '牠背著「' + F.LENSES[e.lens].name + '」，在沙地上慢慢走。';
@@ -1553,7 +1663,7 @@
       line = '牠先在海裡漂著。想好怎麼陪它，再點牠。';
     }
     let wave = '';
-    if (t) {
+    if (t && e.i0 != null) {
       const a = e.i0;
       const b = e.i1 == null ? a : e.i1;
       if (F.isPositive(e.fam)) wave = b > a ? '這份感覺變亮了（' + a + ' → ' + b + '）。' : b === a ? '它還是這麼亮。' : '它淡了一點（' + a + ' → ' + b + '），也沒關係。';
@@ -1563,6 +1673,8 @@
     if (t === 'need' && e.needs && e.needs.length) q = F.NEED_QUESTIONS[e.needs[0]];
     else if (F.TURN_QUESTIONS[t]) q = U.pick(F.TURN_QUESTIONS[t]);
     const hue = t ? F.TURNS[t].hue : 200;
+    const gift = e._gift;
+    delete e._gift;
     UI.showModal(
       (card, close) => {
         card.innerHTML =
@@ -1570,6 +1682,7 @@
           '<p class="res-words">' + w + '</p><h2 class="m-title">' + head + '</h2><p class="m-text">' + line + '</p>' +
           (wave ? '<p class="res-wave">' + wave + '</p>' : '') +
           (q ? '<p class="sea-q">' + esc(q) + '</p>' : '') +
+          (gift ? '<p class="res-gift"><span class="light-dot sm"></span>謝謝你記下它・+' + gift.n + ' 光</p>' : '') +
           '<div class="btn-row center">' + (c ? '<button class="btn ghost" data-r="look">看看牠</button>' : '') + '<button class="btn" data-r="ok">好</button></div>';
         card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
         const look = card.querySelector('[data-r="look"]');
@@ -1609,12 +1722,61 @@
       (card, close) => {
         card.innerHTML =
           '<canvas class="pearl-cv big" id="pearlBig" width="160" height="160" aria-label="珍珠"></canvas>' +
-          '<h2 class="m-title">「' + fam.name + '」的珍珠完成了</h2>' +
-          '<p class="m-text">同一種感覺，你陪了它七次。每一層，是那一次你選的陪法。</p>' +
+          '<h2 class="m-title">「' + fam.name + '」的珍珠</h2>' +
+          '<p class="m-text">這 ' + p.layers.length + ' 次「' + fam.name + '」，你用了 ' + new Set(p.layers).size + ' 種方式陪它。由裡到外，每一層是那一次你選的陪法。</p>' +
           '<ol class="layers">' + p.layers.map((t) => '<li>' + turnChip(t) + '</li>').join('') + '</ol>' +
           '<div class="btn-row center"><button class="btn">收進珍珠盒</button></div>';
         UI.drawPearl($('pearlBig'), p.layers, 160);
         card.querySelector('.btn').addEventListener('click', () => close());
+      },
+      { cls: 'paper' }
+    );
+  };
+
+  /** 每週回顧：只用你自己的字組成，不下結論、不給建議 */
+  UI.recapModal = () => {
+    const s = Game.state;
+    const week = Game.weekEntries();
+    s.eco.lastRecap = Date.now();
+    Game.save();
+    const md = (ts) => {
+      const d = new Date(ts);
+      return d.getMonth() + 1 + '/' + d.getDate();
+    };
+    let html = '<div class="letter-seal" aria-hidden="true">' + icon('tides') + '</div><h2 class="m-title">這一週的海</h2><div class="letter recap">';
+    if (!week.length) html += '<p>這一週很安靜，海也是。</p>';
+    else {
+      html += '<p>這一週，你替 <b>' + week.length + '</b> 份感覺取了名字。</p>';
+      const wc = {};
+      for (const e of week) for (const w of e.words || []) wc[w] = (wc[w] || 0) + 1;
+      const top = Object.keys(wc).sort((a, b) => wc[b] - wc[a]).slice(0, 3);
+      if (top.length) html += '<p>最常出現的是' + top.map((w) => '「' + esc(w) + '」').join('') + '。</p>';
+      const turns = Array.from(new Set(week.map((e) => e.turn).filter((t) => F.TURNS[t])));
+      if (turns.length) html += '<p>你用了 ' + turns.length + ' 種方式陪它們：</p><div class="chips center">' + turns.map((t) => turnChip(t)).join('') + '</div>';
+      const drops = week.filter((e) => !F.isPositive(e.fam) && e.i0 != null && e.i1 != null && e.i1 < e.i0 && F.TURNS[e.turn]).sort((a, b) => b.i0 - b.i1 - (a.i0 - a.i1));
+      if (drops.length) {
+        const e = drops[0];
+        html += '<p>浪退最多的一次，是 ' + md(e.t) + ' 的「' + esc(e.words[0]) + '」：從 ' + e.i0 + ' 到 ' + e.i1 + '，那時候你選了「' + F.TURNS[e.turn].name + '」。</p>';
+      }
+      const done = s.entries.filter((e) => e.step && e.step.status === 'done' && Date.now() - (e.step.doneAt || 0) < 7 * 86400000);
+      if (done.length) html += '<p>你做到了：' + done.slice(-4).map((e) => '「' + esc(e.step.what) + '」').join('') + '。</p>';
+      const pos = week.filter((e) => F.isPositive(e.fam)).length;
+      if (pos) html += '<p>其中有 ' + pos + ' 份，是舒服的感覺。</p>';
+      const said = week.filter((e) => e.text && ['reframe', 'kind', 'savor', 'thank', 'keep', 'need'].includes(e.turn)).slice(-3);
+      if (said.length) {
+        html += '<p>這週你寫給自己的話：</p>';
+        for (const e of said) html += '<blockquote class="said"><span>' + md(e.t) + '・' + F.TURNS[e.turn].name + '</span>' + esc(e.text) + '</blockquote>';
+      }
+    }
+    html += '<p class="letter-sign">— 海</p></div><div class="btn-row center"><button class="btn ghost" data-r="tides">打開潮汐圖</button><button class="btn" data-r="ok">收好</button></div>';
+    UI.showModal(
+      (card, close) => {
+        card.innerHTML = html;
+        card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
+        card.querySelector('[data-r="tides"]').addEventListener('click', () => {
+          close();
+          UI.openSheet('tides', null, { back: 'more' });
+        });
       },
       { cls: 'paper' }
     );

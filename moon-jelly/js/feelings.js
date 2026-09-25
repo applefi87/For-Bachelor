@@ -6,9 +6,13 @@
  * - 情緒標記（affect labeling）與情緒顆粒度：把感覺說得越精準，越不容易被它淹沒。
  * - 情緒調節的彈性（Bonanno）：沒有唯一正確的陪法，能依情況換著用才是重點。
  *   所以每一種轉折都是一條正當的路，只是會長出不一樣的生物。
- * - 各種轉折分別對應：接納與觀浪（ACT、urge surfing）、認知重評與自我拉開距離、
+ * - 各種轉折分別對應：接納與觀浪（ACT、urge surfing）、著陸（grounding）、認知重評與自我拉開距離、
  *   情緒背後的需要（EFT、非暴力溝通）、自我慈悲（Neff）、行為活化、宣洩、
  *   品味（savoring）、感恩、正向記憶的保存與回想。
+ * - 強度很高的時候，換角度想（重評）比較難做到，先把注意力拉回身體、讓浪過去比較容易
+ *   （Sheppes & Gross）；所以陪法的排列順序會跟著強度變，但每一種都選得到。
+ * - 反覆只用「倒出來」陪同一種感覺，研究上不一定會讓它變小（Bushman 2002），
+ *   所以只會輕輕提一句，不會擋。
  */
 (function (MJ) {
   'use strict';
@@ -26,6 +30,7 @@
     calm: { name: '平靜', hue: 162, sat: 0.55, v: 0.6, a: -0.6, words: ['平靜', '放鬆', '安心', '自在', '踏實', '滿足'] },
     joy: { name: '喜悅', hue: 46, sat: 0.85, v: 0.7, a: 0.65, words: ['開心', '興奮', '期待', '有成就感', '驕傲', '好笑'] },
     warm: { name: '溫暖', hue: 20, sat: 0.75, v: 0.72, a: 0.02, words: ['感謝', '被愛', '感動', '溫暖', '被理解', '幸運'] },
+    fog: { name: '說不上來', hue: 200, sat: 0.12, v: 0, a: 0, words: ['說不上來', '亂', '悶', '複雜', '很滿', '怪怪的'] },
   };
   F.FAMILY_IDS = Object.keys(F.FAMILIES);
   F.isPositive = (fam) => F.FAMILIES[fam] && F.FAMILIES[fam].v > 0;
@@ -43,6 +48,10 @@
     allow: {
       name: '讓它待著', sub: '不用改變它，陪它一下', side: 'any', hue: 222, species: 'jelly',
       desc: '看著浪升起、到頂、落下。不去推開它。',
+    },
+    ground: {
+      name: '先著陸', sub: '先回到身體和這個地方', side: 'neg', hue: 300, species: 'seahorse',
+      desc: '看見五樣、聽見四種、摸到三種……',
     },
     reframe: {
       name: '換個殼看看', sub: '用另一個角度看同一件事', side: 'neg', hue: 30, species: 'crab',
@@ -78,6 +87,34 @@
     },
   };
   F.TURN_IDS = Object.keys(F.TURNS);
+
+  /** 陪法的排列：跟著強度變。浪很大時，先穩住的放前面；浪小的時候，想一想的放前面 */
+  F.TURN_ORDER = {
+    high: ['ground', 'allow', 'release', 'kind', 'step', 'need', 'reframe'],
+    mid: ['allow', 'reframe', 'need', 'kind', 'step', 'ground', 'release'],
+    low: ['reframe', 'need', 'step', 'kind', 'allow', 'ground', 'release'],
+    pos: ['savor', 'thank', 'keep', 'allow'],
+  };
+  F.band = (i0) => (i0 == null ? 'mid' : i0 >= 8 ? 'high' : i0 <= 4 ? 'low' : 'mid');
+  F.orderTurns = (fams, i0) => {
+    const avail = F.turnsFor(fams);
+    const neg = F.TURN_ORDER[F.band(i0)];
+    const order = F.isPositive(fams[0]) ? F.TURN_ORDER.pos.concat(neg) : neg.concat(F.TURN_ORDER.pos);
+    const out = [];
+    for (const id of order.concat(avail)) if (avail.includes(id) && !out.includes(id)) out.push(id);
+    return out;
+  };
+  /**
+   * 「這種時候常用」：只標一個，依感覺的家族、強度、最近是不是一直來。
+   * recentSame = 最近兩週同一個家族出現的次數（不含這一次）
+   */
+  F.recommend = (fam, i0, recentSame) => {
+    if (F.isPositive(fam)) return { joy: 'savor', warm: 'thank', calm: 'savor' }[fam] || 'savor';
+    if (i0 != null && i0 >= 8) return 'ground';
+    if (recentSame >= 3) return 'need';
+    if (fam === 'anx') return i0 != null && i0 >= 6 ? 'ground' : 'reframe';
+    return { shame: 'kind', tired: 'step', sad: 'step', lonely: 'step', anger: 'need', fog: 'allow' }[fam] || 'allow';
+  };
   F.turnsFor = (fams) => {
     const hasPos = fams.some(F.isPositive);
     const hasNeg = fams.some((f) => !F.isPositive(f));
@@ -129,6 +166,7 @@
   };
   F.TURN_QUESTIONS = {
     allow: ['它現在在身體的哪裡？', '如果它有顏色，會是什麼顏色？', '它比剛才輕一點，還是重一點？'],
+    ground: ['現在，腳底是什麼感覺？', '剛才注意到的東西裡，哪一樣最讓你意外？'],
     reframe: ['還有沒有第三種看法？', '這個殼，你之後還想再背嗎？'],
     kind: ['這句話，今天可以再對自己說一次嗎？', '你最近一次這樣對自己說話，是什麼時候？'],
     release: ['現在的肩膀，是什麼感覺？', '呼吸有沒有比剛才長一點？'],
@@ -137,6 +175,15 @@
     keep: ['下次打開這個瓶子的你，會在哪裡呢？'],
     step: ['做完之後，想怎麼犒賞自己？'],
   };
+
+  /** 先著陸：5-4-3-2-1 */
+  F.GROUND = [
+    ['看見', 5, '五樣看得見的東西'],
+    ['聽見', 4, '四種聲音，遠的近的都算'],
+    ['摸到', 3, '三種觸感：衣服、椅子、地板'],
+    ['聞到', 2, '兩種味道，聞不到就深呼吸'],
+    ['嚐到', 1, '嘴裡的一種味道'],
+  ];
 
   /** 對自己溫柔：三句 */
   F.KIND_HARD = ['難受', '辛苦', '不容易', '累', '痛', '委屈'];
@@ -150,6 +197,7 @@
     sad: ['喝一杯溫的東西', '聽一首喜歡的歌', '抱一下抱枕', '今天早點睡'],
     lonely: ['傳訊息給一個人', '去有人的地方坐一下', '打電話給家人', '跟店員說聲謝謝'],
     tired: ['躺下十分鐘', '喝一杯水', '關掉通知半小時', '只做一件最小的事'],
+    fog: ['喝一杯水', '出去走五分鐘', '把現在的想法寫成三行', '洗把臉'],
     any: ['喝一杯水', '出去走五分鐘', '整理桌面一小塊', '伸個懶腰'],
   };
   F.STEP_WHEN = {
@@ -191,6 +239,7 @@
     keep: '<path d="M10 3.5h4M10.5 3.5v3.3L8 10.2A4 4 0 0 0 7.2 12.6V18a2.5 2.5 0 0 0 2.5 2.5h4.6a2.5 2.5 0 0 0 2.5-2.5v-5.4a4 4 0 0 0-.8-2.4l-2.5-3.4V3.5"/><path d="M9.5 14h5M9.5 16.8h3.5"/>',
     larva: '<ellipse cx="12" cy="12" rx="4.5" ry="3.3"/><path d="M5 12H3.5M20.5 12H19M12 6.5V5M12 19v-1.5M7.3 7.3l-1-1M17.7 7.3l1-1M7.3 16.7l-1 1M17.7 16.7l1 1"/>',
     tides: '<path d="M3 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M3 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M3 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/>',
+    ground: '<path d="M13.5 4.5c-1.9 0-3.3 1.4-3.3 3.1 0 1 .5 1.9 1.2 2.4-2.1 1-3.4 3.1-3.4 5.4 0 2.6 2 4.4 4.4 4.4 1.6 0 2.8-1.1 2.8-2.5s-1-2.2-2.1-2.2-1.6.8-1.6 1.4"/><path d="M13.5 4.5l4.5 1.6-3.6 1.3"/><circle cx="12.9" cy="6.6" r=".6"/><path d="M8.2 12.5c-1.2.2-2 .9-2.4 1.8M8 15.5c-1 .4-1.6 1.1-1.8 2"/>',
     heartsea: '<path d="M12 18.5s-6.5-4-6.5-8.6A3.6 3.6 0 0 1 12 7.7a3.6 3.6 0 0 1 6.5 2.2c0 4.6-6.5 8.6-6.5 8.6z"/><path d="M8.5 12.2c1.2-1 2.3-1 3.5 0s2.3 1 3.5 0"/>',
   };
 
@@ -209,12 +258,12 @@
     crab: {
       name: '寄居蟹', from: '換個殼看看',
       fact: '寄居蟹會排隊換殼：大的換進新殼，舊殼留給小一號的。科學家叫它「空缺鏈」。',
-      link: '海龜帶回來的殼，會引起一連串的換殼。',
+      link: '海龜帶回來的殼、或你放下的空殼，會引起一連串的換殼。有礁石洞的話，受驚時會躲進去。',
     },
     lantern: {
       name: '燈籠魚', from: '聽聽它要什麼',
       fact: '燈籠魚晚上游到淺海、白天回到深處，這是地球上規模最大的遷徙之一。',
-      link: '說出同一種需要的燈籠魚會游成一群。哪一群最大，也許就是你最近最需要的。',
+      link: '說出同一種需要的燈籠魚會游成一群。白天，有礁石洞就待在它的陰影裡；晚上，會繞著月光石。',
     },
     clown: {
       name: '小丑魚與海葵', from: '對自己溫柔',
@@ -225,6 +274,11 @@
       name: '海龜', from: '一件小事',
       fact: '母海龜會靠著地磁，回到自己出生的沙灘。',
       link: '小事做到了，海龜就會出發旅行，回來時帶著一個殼送給寄居蟹。',
+    },
+    seahorse: {
+      name: '海馬', from: '先著陸',
+      fact: '海馬游得很慢，會用尾巴捲住海草，讓自己在水流裡穩穩的。牠們也是少數由爸爸懷孕的動物。',
+      link: '每隻海馬都捲著一根海草。有了海草床，牠們會聚在一起，捲在同一片海草裡。',
     },
     tears: {
       name: '藍眼淚', from: '先倒出來就好',
@@ -244,7 +298,7 @@
     oyster: {
       name: '珍珠貝', from: '同一種感覺來了很多次',
       fact: '有東西跑進貝殼裡，珍珠貝會一層一層分泌珍珠質把它包起來。',
-      link: '同一種感覺每來一次，就多一層。每一層的顏色，是你那次選的陪法。滿七層就是一顆珍珠。',
+      link: '同一種感覺每來一次，就多一層，顏色是你那次選的陪法。七層以上、用過三種陪法，才會結成一顆珍珠。',
     },
     octopus: {
       name: '章魚', from: '用過很多種陪法',

@@ -8,12 +8,19 @@
   const C = MJ.Content;
   const F = MJ.Feelings;
 
+  const DAY = 86400000;
   const TANK = [6, 9, 12, 16];
-  const TANK_PRICE = [300, 900, 2400];
+  const TANK_PRICE = [400, 1200, 3000];
   const BREED_COOLDOWN = 4 * 60 * 1000;
   const MAX_POLYPS = 3;
-  const OFFLINE_CAP = 3 * 3600;
-  const OFFLINE_EFF = 0.35;
+  const OFFLINE_CAP = 6 * 3600;
+  const OFFLINE_EFF = 0.15;
+  // 光是稀有的：水母慢慢發光，一天裡真正會讓你停下來的，是幾件小事
+  const RATE_K = 0.04;
+  const RITUAL_LIGHT = 30;
+  const RITUAL_DAILY = 3;
+  const BREATH_DAILY = 3;
+  const ORIGIN_MAX = 12;
 
   const BREATHS = {
     relax: { name: '放鬆', label: '4・2・6', desc: '吐氣比吸氣長，身體會自己慢下來。', seq: [['in', 4], ['hold', 2], ['out', 6]] },
@@ -32,9 +39,9 @@
     ['feed_100', '浮游生物大師', '餵食 100 次', 80, (s) => s.stats.feeds >= 100],
     ['pet_10', '軟軟的', '摸摸水母 10 次', 20, (s) => s.stats.pets >= 10],
     ['pet_200', '水母知己', '摸摸水母 200 次', 150, (s) => s.stats.pets >= 200],
-    ['worry_1', '交給海', '第一次把感覺倒出來，交給水母', 30, (s) => s.stats.worries >= 1 || s.entries.some((e) => e.turn === 'release')],
+    ['worry_1', '交給海', '第一次把感覺倒出來，交給水母', 0, (s) => s.stats.worries >= 1 || s.entries.some((e) => e.turn === 'release')],
     ['worry_10', '輕一點了', '陪了 10 份感覺', 120, (s) => s.stats.rituals >= 10],
-    ['worry_50', '潮來潮往', '陪了 50 份感覺', 400, (s) => s.stats.rituals >= 50],
+    ['worry_50', '潮來潮往', '陪了 50 份感覺', 300, (s) => s.stats.rituals >= 50],
     ['breath_1', '深呼吸', '完成一次呼吸練習', 30, (s) => s.stats.breaths >= 1],
     ['breath_10', '潮汐之心', '完成 10 次呼吸練習', 200, (s) => s.stats.breaths >= 10],
     ['catch_1', '撈到了', '第一次撈到野生水母', 20, (s) => s.stats.catches >= 1],
@@ -43,14 +50,14 @@
     ['release_1', '回到大海', '第一次讓水母回到大海', 30, (s) => s.stats.released >= 1],
     ['codex_10', '小小研究員', '圖鑑發現 10 項', 100, (s) => Object.keys(s.codex).length >= 10],
     ['codex_25', '海洋學家', '圖鑑發現 25 項', 400, (s) => Object.keys(s.codex).length >= 25],
-    ['codex_all', '海月博士', '圖鑑全部完成', 2000, (s) => Object.keys(s.codex).length >= Gn.codexTotal()],
+    ['codex_all', '海月博士', '圖鑑全部完成', 800, (s) => Object.keys(s.codex).length >= Gn.codexTotal()],
     ['special_1', '奇蹟', '第一次遇見特殊體質的水母', 150, (s) => Object.keys(s.codex).some((k) => k.startsWith('special:'))],
     ['streak_3', '常來玩', '連續 3 天來看水母', 60, (s) => s.daily.streak >= 3],
     ['streak_7', '一週的潮汐', '連續 7 天來看水母', 300, (s) => s.daily.streak >= 7],
     ['decor_5', '小小造景師', '擁有 5 個裝飾', 100, (s) => s.decor.length >= 5],
     ['theme_2', '換個風景', '擁有第二個主題', 50, (s) => s.themes.length >= 2],
     ['tank_max', '大海的一角', '把水族箱升到最大', 500, (s) => s.tank >= TANK.length - 1],
-    ['family_12', '熱熱鬧鬧', '同時養 12 隻水母', 250, (s, g) => g.residentJellies().length >= 12],
+    ['family_12', '熱熱鬧鬧', '同時養 12 隻水母', 250, (s, g) => g.tankJellies().length >= 12],
     ['night_owl', '夜貓子', '在凌晨 0～4 點來看水母', 50, (s) => !!s.flags.nightOwl],
     ['star', '許個願', '接住一顆流星', 40, (s) => !!s.flags.star],
     ['bubbles_50', '戳泡泡', '戳破 50 顆泡泡', 60, (s) => s.stats.bubbles >= 50],
@@ -59,11 +66,11 @@
     ['light_10k', '萬家燈火', '累積獲得 10,000 光', 300, (s) => s.lifetimeLight >= 10000],
     ['ritual_1', '替它取名字', '第一次替一份感覺取名字', 20, (s) => s.stats.rituals >= 1],
     ['words_20', '說得很準', '用過 20 個不同的感覺字', 120, (s) => new Set([].concat(...s.entries.map((e) => e.words || []))).size >= 20],
-    ['turns_5', '很多種陪法', '用過五種不同的陪法', 150, (s) => new Set(s.entries.map((e) => e.turn).filter(Boolean)).size >= 5],
+    ['turns_5', '很多種陪法', '用過五種不同的陪法', 0, (s) => new Set(s.entries.map((e) => e.turn).filter(Boolean)).size >= 5],
     ['step_1', '小事做到了', '完成一件小事', 40, (s) => s.stats.stepsDone >= 1],
-    ['chain', '空缺鏈', '看見寄居蟹一個接一個換殼', 60, (s) => !!s.flags.chain],
-    ['octopus', '章魚出現了', '一個月內用過四種以上的陪法', 100, (s, g) => !!(g.eco && g.eco.octopus)],
-    ['pearl_1', '第一顆珍珠', '同一種感覺，陪了它七次', 300, (s, g) => !!(g.eco && g.eco.pearls().length)],
+    ['chain', '空缺鏈', '看見寄居蟹一個接一個換殼', 30, (s) => !!s.flags.chain],
+    ['octopus', '章魚出現了', '一個月內用過四種以上的陪法', 0, (s, g) => !!(g.eco && g.eco.octopus)],
+    ['pearl_1', '第一顆珍珠', '同一種感覺，用不同的方式陪了它七次', 0, (s, g) => !!(g.eco && g.eco.pearls().length)],
   ].map(([id, name, desc, reward, test]) => ({ id, name, desc, reward, test }));
 
   const TUTORIAL = [
@@ -110,7 +117,7 @@
     s.flags = s.flags || {};
     if (!s.tutorial || typeof s.tutorial !== 'object') s.tutorial = {};
     if (!Array.isArray(s.entries)) s.entries = [];
-    s.eco = Object.assign({ gifts: [], species: {}, lastReturn: 0 }, s.eco || {});
+    s.eco = Object.assign({ gifts: [], species: {}, lastReturn: 0, lastRecap: 0 }, s.eco || {});
     A.configure(s.settings);
 
     Game.world = new MJ.World();
@@ -179,7 +186,7 @@
     const pg = Gn.random({ starter: true });
     pg.pattern = 'dots';
     Game.polyps.push(new MJ.Polyp({ genes: pg, x: 0.5 + U.rand(-0.2, 0.2), progress: 0.3, duration: 70, parents: null }));
-    s.light = 25;
+    s.light = 50;
   };
 
   Game.resize = () => {
@@ -212,7 +219,9 @@
   Game.jellyRate = (j) => {
     const g = j.genes;
     if (j._stars == null) j._stars = Gn.stars(g);
+    if (j.origin) return 0;
     return (
+      RATE_K *
       (0.05 + 0.13 * j.growth) *
       (0.6 + 0.8 * g.glow) *
       (0.55 + 0.35 * j.fullness + 0.3 * j.happy) *
@@ -223,12 +232,14 @@
   };
 
   Game.residentJellies = () => Game.jellies.filter((j) => !j.visitor && !j.leaving);
-  Game.residentCount = () => Game.residentJellies().length + Game.polyps.length;
+  /** 佔水族箱名額的水母：心情變成的水母不算，牠們是另外住在這裡的 */
+  Game.tankJellies = () => Game.jellies.filter((j) => !j.visitor && !j.leaving && !j.origin);
+  Game.residentCount = () => Game.tankJellies().length + Game.polyps.length;
   Game.capacity = () => TANK[Game.state.tank] || TANK[0];
 
   Game.incomeRate = () => {
     let r = 0;
-    for (const j of Game.jellies) if (!j.visitor && !j.leaving) r += Game.jellyRate(j);
+    for (const j of Game.jellies) if (!j.visitor && !j.leaving && !j.origin) r += Game.jellyRate(j);
     return r;
   };
 
@@ -349,7 +360,7 @@
       Game.nextEvent -= dt;
       if (Game.nextEvent <= 0) {
         Game.fireEvent();
-        Game.nextEvent = U.rand(70, 150);
+        Game.nextEvent = U.rand(150, 300);
       }
     }
     Game.updateEvents(dt);
@@ -668,7 +679,7 @@
       const st = Game.star;
       if (Math.hypot(x - st.x, y - st.y) < 80) {
         Game.star = null;
-        const r = 60;
+        const r = 20;
         Game.addLight(r);
         s.flags.star = true;
         Game.fx.spark(x, y, 50, 24, { speed: 120 });
@@ -692,8 +703,13 @@
         }
       }
       if (n) {
-        Game.addLight(n * 2);
-        Game.fx.text(x, y - 20, '+' + n * 2 + ' 光', '#bfeaff');
+        sw.caught = (sw.caught || 0) + n;
+        const r = Math.floor(sw.caught / 2) - (sw.paid || 0);
+        sw.paid = (sw.paid || 0) + r;
+        if (r > 0) {
+          Game.addLight(r);
+          Game.fx.text(x, y - 20, '+' + r + ' 光', '#bfeaff');
+        }
         A.sparkle((x / Game.W) * 2 - 1);
         return true;
       }
@@ -704,7 +720,7 @@
       if (!b.bonus && !b.gold) continue;
       if (Math.hypot(x - b.x, y - b.y) < b.r + 16) {
         bubbles.splice(i, 1);
-        const r = b.gold ? 8 : 1;
+        const r = b.gold ? 2 : 1;
         Game.addLight(r);
         s.stats.bubbles++;
         Game.fx.spark(b.x, b.y, b.gold ? 46 : 190, b.gold ? 10 : 5, { speed: 50, sat: b.gold ? 0.9 : 0.3 });
@@ -724,16 +740,11 @@
       d._ping = Game.t;
       A.whoosh();
       A.arpeggio(12, 5, 0.14, 0.1);
-      if (now > s.cooldowns.conch) {
-        s.cooldowns.conch = now + 30000;
-        Game.addLight(3);
-        Game.fx.text(b.cx, b.y - 10, '+3 光');
-      }
       MJ.UI.toast(U.pick(['你聽見了海的聲音。', '海螺裡，有很遠很遠的浪。', '嘩——沙——嘩——沙——']));
     } else if (d.type === 'bottle') {
       const bonus = now > s.cooldowns.bottle;
       if (bonus) {
-        s.cooldowns.bottle = now + 3 * 60000;
+        s.cooldowns.bottle = now + 20 * 3600000;
         Game.addLight(5);
       }
       A.open();
@@ -743,8 +754,8 @@
       A.click();
     } else if (d.type === 'chest') {
       if (now > s.cooldowns.chest) {
-        s.cooldowns.chest = now + 4 * 60000;
-        const r = U.randInt(30, 70);
+        s.cooldowns.chest = now + 4 * 3600000;
+        const r = U.randInt(20, 40);
         Game.addLight(r);
         Game.fx.spark(b.cx, b.y + b.h * 0.3, 46, 26, { speed: 110, up: 60, grav: 90 });
         Game.fx.text(b.cx, b.y - 12, '+' + r + ' 光', '#ffe39a', 16);
@@ -808,36 +819,8 @@
     }
   };
 
-  Game.sendWorry = (text) => {
-    text = String(text || '').trim();
-    if (!text) return;
-    if (!Game.residentJellies().length) {
-      MJ.UI.toast('水族箱裡還沒有水母可以幫忙。等寶寶孵化再來吧。');
-      return;
-    }
-    const x = U.rand(0.3, 0.7) * Game.W;
-    Game.food.worry(text.slice(0, 200), x);
-    A.whoosh();
-    Game.tut('worry');
-  };
-
   Game.digestWorry = (j, f) => {
-    const s = Game.state;
-    if (f.entry) return Game.digestEntry(j, f);
-    j.worryFed++;
-    j.fullness = Math.min(1, j.fullness + 0.2);
-    j.happy = Math.min(1, j.happy + 0.3);
-    j.petGlow = 1;
-    const [cx, cy] = j.center();
-    Game.fx.scatterText(f.x, f.y, f.text, 42);
-    Game.fx.spark(cx, cy, j.genes.hue, 18, { speed: 80 });
-    Game.fx.ring(cx, cy, j.genes.hue, 80 * Game.unit);
-    A.arpeggio(7, 4, 0.1, 0.12);
-    const reward = 12 + Math.min(40, f.chars.length);
-    Game.addLight(reward);
-    Game.fx.text(cx, cy - j.bellH - 10, '+' + reward + ' 光');
-    s.stats.worries++;
-    MJ.UI.toast(U.pick(C.worryReplies).replace('{name}', j.name), 'soft', U.pick(C.worryAfter));
+    if (f.entry) Game.digestEntry(j, f);
   };
 
   /* ================= 繁殖與孵化 ================= */
@@ -976,7 +959,7 @@
     }
     if (found.length) {
       let reward = 0;
-      for (const k of found) reward += k.startsWith('special:') ? 100 : 20;
+      for (const k of found) reward += k.startsWith('special:') ? 60 : 10;
       if (noReward) return found;
       Game.addLight(reward);
       if (!silent) {
@@ -1004,7 +987,7 @@
 
   /* ================= 商店 ================= */
 
-  Game.catchCost = () => Math.min(180, 30 + Game.state.stats.catches * 10);
+  Game.catchCost = () => Math.min(300, 60 + Game.state.stats.catches * 20);
 
   Game.catchWild = () => {
     const s = Game.state;
@@ -1066,11 +1049,28 @@
   Game.buyDecor = (type) => {
     const def = MJ.Decor.DEFS[type];
     if (!def || Game.decorCount(type) >= def.max) return;
+    if (def.needsPearl && !Game.eco.pearls().length) return;
     if (!Game.spend(def.price)) return MJ.UI.toast('光還不夠，再等一下下。');
     const d = MJ.Decor.create(type, Game.freeDecorX());
     Game.state.decor.push(d);
     A.sparkle();
     MJ.UI.toast(def.name + '放好了。想換位置的話，按「調整擺設」。');
+    Game.save();
+  };
+
+  /** 買一個空殼放在沙地上：最大的寄居蟹搬進去，舊殼一路往下讓（一天一個） */
+  Game.SHELL_PRICE = 60;
+  Game.buyShell = () => {
+    const s = Game.state;
+    if (s.eco.shellDay === U.today()) return;
+    if (!Game.spend(Game.SHELL_PRICE)) return MJ.UI.toast('光還不夠，再等一下下。');
+    s.eco.shellDay = U.today();
+    s.eco.gifts.push({ id: U.uid(), type: U.pick(['moon', 'spire', 'conch', 'cowrie', 'nautilus', 'star', 'nacre']), size: U.rand(1.2, 1.45), t: Date.now(), revealAt: Date.now(), from: 'shop' });
+    if (s.eco.gifts.length > 12) s.eco.gifts.shift();
+    const events = Game.eco.rebuild(true);
+    A.sparkle();
+    if (!events.some((ev) => ev.type === 'chain')) MJ.UI.toast('空殼放在沙地上了。', 'soft', '等哪隻寄居蟹長大了，就會搬進去。');
+    Game.handleEcoEvents(events);
     Game.save();
   };
 
@@ -1139,14 +1139,15 @@
     Game.save();
   };
 
-  Game.release = (id) => {
+  Game.release = (id, quiet) => {
     const s = Game.state;
     const j = Game.jellies.find((k) => k.id === id);
     if (!j || j.visitor) return;
     j.leaving = true;
     j.releaseUp = true;
-    const stars = Gn.stars(j.genes);
-    const reward = 10 + stars * 10;
+    // 只有自己長大、住滿一天的水母，回去時才會留下一點光（免得撈了就放）
+    const settled = j.adult && !j.origin && Date.now() - (j.born || 0) > DAY;
+    const reward = settled ? 5 + Gn.stars(j.genes) * 3 : 0;
     Game.addLight(reward);
     s.released.unshift({ name: j.name, genes: j.genes, date: Date.now(), born: j.born });
     if (s.released.length > 60) s.released.length = 60;
@@ -1154,7 +1155,7 @@
     const [cx, cy] = j.center();
     Game.fx.spark(cx, cy, j.genes.hue, 20, { speed: 50, up: 30 });
     A.arpeggio(10, 4, 0.16, 0.1);
-    MJ.UI.toast('「' + j.name + '」回到大海了。祝牠一路順風。', 'soft', '+' + reward + ' 光');
+    if (!quiet) MJ.UI.toast('「' + j.name + '」回到大海了。祝牠一路順風。', 'soft', reward ? '+' + reward + ' 光' : null);
     if (Game.mating && (Game.mating.a === j || Game.mating.b === j)) Game.updateMating();
     Game.save();
   };
@@ -1233,7 +1234,7 @@
     }
     if (Game.bubbleRain > 0) {
       Game.bubbleRain -= dt;
-      if (Math.random() < dt * 9) {
+      if (Math.random() < dt * 2.5) {
         const x = U.rand(0.05, 0.95) * W;
         const b = Game.world.addBubble(x, Game.world.sandY(x) - 4, U.rand(6, 11) * u, { big: true });
         if (b) b.bonus = true;
@@ -1324,7 +1325,7 @@
       MJ.UI.pastLetterModal(b.letter);
       return;
     }
-    const r = U.randInt(20, 40);
+    const r = U.randInt(10, 20);
     Game.addLight(r);
     Game.fx.spark(b.x, b.y, 170, 14, { speed: 60, sat: 0.5 });
     A.open();
@@ -1358,7 +1359,7 @@
     d.best = Math.max(d.best || 0, d.streak);
     d.last = today;
     s.moods[today] = moodId;
-    const reward = Math.min(150, 30 + (d.streak - 1) * 10);
+    const reward = Math.min(60, 20 + (d.streak - 1) * 5);
     Game.addLight(reward);
     const gifts = ['星星糖 ×1'];
     s.inventory.star = (s.inventory.star || 0) + 1;
@@ -1437,8 +1438,17 @@
   Game.finishBreath = () => {
     const s = Game.state;
     const b = Game.breath;
-    const reward = 15 * b.cycles;
-    Game.addLight(reward);
+    const today = U.today();
+    if (s.breathDay !== today) {
+      s.breathDay = today;
+      s.breathCount = 0;
+    }
+    let reward = 0;
+    if (s.breathCount < BREATH_DAILY) {
+      s.breathCount++;
+      reward = Game.breathReward(b.cycles);
+      Game.addLight(reward);
+    }
     s.stats.breaths++;
     s.lastBreathAt = Date.now();
     A.breath('end');
@@ -1448,6 +1458,9 @@
     MJ.UI.breathEnd(true, reward);
     Game.save();
   };
+
+  Game.breathReward = (cycles) => 4 * cycles;
+  Game.breathLeft = () => (Game.state.breathDay === U.today() ? Math.max(0, BREATH_DAILY - (Game.state.breathCount || 0)) : BREATH_DAILY);
 
   Game.stopBreath = () => {
     if (Game.mode !== 'breath') return;
@@ -1565,13 +1578,16 @@
 
   Game.checkAchievements = () => {
     const s = Game.state;
+    // 剛陪完一份心情的那一分鐘，不跳成就打擾；晚一點再說
+    if (MJ.UI.isQuiet()) return;
     for (const a of ACH) {
       if (s.achievements[a.id]) continue;
       if (a.test(s, Game)) {
         s.achievements[a.id] = Date.now();
         Game.addLight(a.reward);
         A.discover();
-        MJ.UI.toast('成就達成：' + a.name, 'achievement', a.desc + '・+' + a.reward + ' 光');
+        MJ.UI.toast((a.reward ? '成就達成：' : '留下紀念：') + a.name, 'achievement', a.desc + (a.reward ? '・+' + a.reward + ' 光' : ''));
+        return;
       }
     }
   };
@@ -1590,8 +1606,6 @@
   };
 
   /* ================= 心情與生態 ================= */
-
-  const DAY = 86400000;
 
   /** 儀式結束：把這份心情記下來，交給海 */
   Game.commitEntry = (d) => {
@@ -1621,11 +1635,14 @@
       s.ritualDay = today;
       s.ritualCount = 0;
     }
-    // 一天前三次給光；之後照樣長生物，只是不再給光，免得感覺變成賺錢的工具
-    if (!d.resume && s.ritualCount < 3) {
+    // 獎勵的是「記下來」這個動作：不管是什麼感覺、選了哪種陪法（或還沒決定），都一樣。
+    // 一天前三份給光；之後照樣長生物，只是不再給光，免得感覺變成賺錢的工具
+    if (!d.resume && s.ritualCount < RITUAL_DAILY) {
       s.ritualCount++;
-      Game.addLight(20);
+      Game.addLight(RITUAL_LIGHT);
+      e._gift = { n: RITUAL_LIGHT, count: s.ritualCount };
     }
+    MJ.UI.quiet(75);
     Game.tut('worry');
     const raw = d.raw || (e.turn === 'release' ? d.text : '');
     A.whoosh();
@@ -1691,7 +1708,7 @@
       const x = c.x != null ? c.x : c.xf * Game.W;
       return [x, w.sandY(x) - 12 * Game.unit];
     }
-    if (c.kind === 'bottle') return c.pos();
+    if (c.pos) return c.pos();
     if (c.x != null) return [c.x, c.y];
     return [Game.W / 2, Game.H / 2];
   };
@@ -1728,12 +1745,9 @@
     Game.jellies.push(j);
     e.jelly = j.id;
     Game.register(j.genes, false);
-    // 水母太多的時候，最早由心情變成的那一隻，會慢慢游回大海
-    const res = Game.residentJellies();
-    if (res.length > 24) {
-      const old = res.find((k) => k.origin && k !== j);
-      if (old) Game.release(old.id);
-    }
+    // 心情變成的水母太多的時候，最早的那一隻會慢慢游回大海
+    const born = Game.jellies.filter((k) => k.origin && !k.leaving && k !== j);
+    if (born.length >= ORIGIN_MAX) Game.release(born[0].id, true);
     return j;
   };
 
@@ -1776,10 +1790,7 @@
         if (p) setTimeout(() => MJ.UI.pearlModal(p), 2600);
       } else if (ev.type === 'species') {
         const sp = F.SPECIES[ev.id];
-        if (sp && ev.id !== 'larva') {
-          Game.addLight(30);
-          MJ.UI.toast('生態新發現：' + sp.name, 'discover', '+30 光・在圖鑑的「生態」可以看到牠');
-        }
+        if (sp && ev.id !== 'larva') MJ.UI.toast('生態新發現：' + sp.name, 'discover', '在圖鑑的「生態」可以看到牠');
       }
     }
   };
@@ -1787,7 +1798,7 @@
   /** 點到生態裡的生物 */
   Game.tapCreature = (c) => {
     if (c.kind === 'crab') {
-      c.hide = 2.2;
+      c.startle();
       A.bubble(0, 1.4);
     } else if (c.kind === 'octopus') {
       c.flash = 1.6;
@@ -1795,7 +1806,7 @@
     } else if (c.kind === 'oyster') {
       c.peek = 4;
       A.chime(0);
-    } else if (c.kind === 'larva') {
+    } else if (c.kind === 'larva' || c.kind === 'seahorse') {
       A.chime(0);
     } else A.click();
     MJ.UI.openCreature(c);
@@ -1831,20 +1842,36 @@
     return now + 30 * 60 * 1000;
   };
 
-  /** 過了約定的時間，輕輕問一聲；一天只問一次，不追 */
-  Game.checkSteps = () => {
+  /** 到了約定時間、今天還沒問過的小事 */
+  Game.dueSteps = (mark) => {
     const today = U.today();
     const now = Date.now();
-    for (const e of Game.state.entries) {
-      if (e.turn !== 'step' || !e.step || e.step.status !== 'pending') continue;
-      if (now < e.step.due || e.step.asked === today) continue;
-      e.step.asked = today;
-      MJ.UI.stepAsk(e);
-      return;
-    }
+    const out = Game.state.entries.filter((e) => e.turn === 'step' && e.step && e.step.status === 'pending' && now >= e.step.due && e.step.asked !== today);
+    if (mark) for (const e of out) e.step.asked = today;
+    return out.slice(-3);
   };
 
-  Game.setStep = (id, status) => {
+  /** 過了約定的時間，輕輕問一聲；一天只問一次，不追。正在陪心情、或有別的視窗開著的時候不打擾 */
+  Game.checkSteps = () => {
+    if (MJ.Ritual.open || MJ.UI.modalOpenNow || MJ.UI.isQuiet()) return;
+    const e = Game.dueSteps(false)[0];
+    if (!e) return;
+    e.step.asked = U.today();
+    MJ.UI.stepAsk(e);
+  };
+
+  /* ---------- 每週回顧：用你自己的字組成 ---------- */
+
+  Game.weekEntries = () => Game.state.entries.filter((e) => Date.now() - e.t < 7 * DAY);
+  Game.recapDue = () => {
+    const s = Game.state;
+    const E = s.entries;
+    if (!E.length || Date.now() - E[0].t < 5 * DAY) return false;
+    if (Date.now() - (s.eco.lastRecap || 0) < 6.5 * DAY) return false;
+    return Game.weekEntries().length >= 3;
+  };
+
+  Game.setStep = (id, status, quiet) => {
     const s = Game.state;
     const e = s.entries.find((x) => x.id === id);
     if (!e || !e.step) return;
@@ -1876,11 +1903,11 @@
       A.hatch();
     } else if (status === 'later') {
       e.step.asked = U.today();
-      MJ.UI.toast('好。海龜會在沙灘上等你，不急。');
+      if (!quiet) MJ.UI.toast('好。海龜會在沙灘上等你，不急。');
     } else if (status === 'dropped') {
       e.step.status = 'dropped';
       Game.eco.rebuild(false);
-      MJ.UI.toast('好，這件事先放下。');
+      if (!quiet) MJ.UI.toast('好，這件事先放下。');
     }
     Game.save();
   };
@@ -1931,7 +1958,6 @@
     const h = new Date().getHours();
     if (h >= 0 && h < 4) Game.state.flags.nightOwl = true;
     MJ.UI.afterStart(Game.offline);
-    setTimeout(Game.checkSteps, 2500);
   };
 
   MJ.Game = Game;

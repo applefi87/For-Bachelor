@@ -17,6 +17,13 @@
 
   const T = {};
   let range = 30;
+  let group = 'all';
+  const MIN_N = 3;
+  const GROUPS = [
+    ['all', '全部', () => true],
+    ['high', '強的時候', (e) => e.i0 >= 7],
+    ['low', '不那麼強', (e) => e.i0 <= 6],
+  ];
 
   const inRange = (e) => range === 0 || Date.now() - e.t < range * DAY;
 
@@ -47,23 +54,35 @@
     const turned = list.filter((e) => e.turn);
     const turnKinds = new Set(turned.map((e) => e.turn));
     html += '<p class="lede">' + (range ? '這 ' + range + ' 天' : '到目前為止') + '，你替 <b>' + list.length + '</b> 份感覺取了名字，用了 <b>' + turnKinds.size + '</b> 種方式陪它們。</p>';
+    if (Game.weekEntries().length) html += '<button class="btn ghost wide" id="tRecap">' + icon('diary') + '這一週的回顧</button>';
 
     /* 1. 海的地圖：情緒環狀模型 */
     html += '<h3 class="sub-h">感覺都落在哪裡</h3>';
     html += mapSVG(list);
 
     /* 2. 哪一種陪法，讓浪變小 */
-    const neg = turned.filter((e) => !F.isPositive(e.fam) && e.i1 != null);
+    // 強度很高的時候，下一次量本來就容易低一點（回歸平均數），所以可以分開看強的和不那麼強的時候
+    const gf = (GROUPS.find((g) => g[0] === group) || GROUPS[0])[2];
+    const neg = turned.filter((e) => !F.isPositive(e.fam) && e.i0 != null && e.i1 != null && gf(e));
     const byTurn = {};
     for (const e of neg) (byTurn[e.turn] = byTurn[e.turn] || []).push(e.i1 - e.i0);
-    const rows = Object.keys(byTurn)
-      .map((t) => ({ t, n: byTurn[t].length, avg: byTurn[t].reduce((a, b) => a + b, 0) / byTurn[t].length }))
-      .sort((a, b) => a.avg - b.avg);
+    const all3 = Object.keys(byTurn).map((t) => ({
+      t,
+      n: byTurn[t].length,
+      down: byTurn[t].filter((x) => x < 0).length,
+      avg: byTurn[t].reduce((a, b) => a + b, 0) / byTurn[t].length,
+    }));
+    const rows = all3.filter((r) => r.n >= MIN_N).sort((a, b) => a.avg - b.avg);
+    const few = all3.filter((r) => r.n < MIN_N);
     html += '<h3 class="sub-h">對你來說，哪一種陪法讓浪變小</h3>';
+    html += '<div class="seg wrap" role="radiogroup" aria-label="哪些時候">';
+    for (const [id, name] of GROUPS) html += '<button class="seg-btn' + (group === id ? ' on' : '') + '" role="radio" aria-checked="' + (group === id) + '" data-group="' + id + '">' + name + '</button>';
+    html += '</div>';
     if (rows.length) {
       html += changeSVG(rows);
-      html += '<p class="note">數字是陪完之後，強度平均變了多少；×後面是次數。只有一兩次的時候，先當作參考就好。</p>';
-    } else html += '<p class="note">不舒服的感覺陪完幾次之後，這裡會出現你自己的答案。</p>';
+      html += '<p class="note">數字是陪完之後，強度平均變了多少；下面一行是有幾次真的變小。「強的時候」是一開始 7 以上，「不那麼強」是 6 以下。浪很大的時候，下一次量本來就容易低一點，分開看會比較公平。</p>';
+    } else html += '<p class="note">' + (neg.length ? '同一種陪法用過三次以上，這裡才會出現。' : '不舒服的感覺陪完幾次之後，這裡會出現你自己的答案。') + '</p>';
+    if (few.length) html += '<p class="note">還不到三次：' + few.map((r) => F.TURNS[r.t].name + '（' + r.n + '）').join('、') + '</p>';
 
     /* 3. 感覺在替你在乎的事 */
     const needCount = {};
@@ -96,7 +115,7 @@
       html += '<h3 class="sub-h">還在漂的幼生</h3><ul class="rows">';
       for (const e of larvae.slice(-6).reverse()) {
         html += '<li class="row">' + '<span class="eco-badge sm" style="--h:' + F.FAMILIES[e.fam].hue + '">' + icon('larva') + '</span>';
-        html += '<div class="row-main"><div class="row-title">' + e.words.map((w) => '「' + esc(w) + '」').join('') + '</div><div class="row-sub">' + fmtDate(e.t) + '・浪 ' + e.i0 + '</div></div>';
+        html += '<div class="row-main"><div class="row-title">' + e.words.map((w) => '「' + esc(w) + '」').join('') + '</div><div class="row-sub">' + fmtDate(e.t) + (e.i0 != null ? '・浪 ' + e.i0 : '') + '</div></div>';
         html += '<button class="btn sm ghost" data-resume="' + e.id + '">陪它</button></li>';
       }
       html += '</ul>';
@@ -140,6 +159,14 @@
     body.innerHTML = html;
 
     bindRange(body);
+    const rc = body.querySelector('#tRecap');
+    if (rc) rc.addEventListener('click', () => UI.recapModal());
+    body.querySelectorAll('[data-group]').forEach((b) =>
+      b.addEventListener('click', () => {
+        group = b.dataset.group;
+        MJ.UI.rerender();
+      })
+    );
     body.querySelectorAll('[data-resume]').forEach((b) =>
       b.addEventListener('click', () => {
         const e = all.find((x) => x.id === b.dataset.resume);
@@ -214,9 +241,13 @@
     const sy = (a) => cy - a * (H / 2 - pad);
     const stats = {};
     for (const e of list) {
-      const s = (stats[e.fam] = stats[e.fam] || { n: 0, sum: 0 });
+      if (!F.FAMILIES[e.fam]) continue;
+      const s = (stats[e.fam] = stats[e.fam] || { n: 0, sum: 0, m: 0 });
       s.n++;
-      s.sum += e.i0;
+      if (e.i0 != null) {
+        s.sum += e.i0;
+        s.m++;
+      }
     }
     const max = Math.max(1, ...Object.values(stats).map((s) => s.n));
     let svg = '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="感覺落在情緒地圖上的位置">';
@@ -237,9 +268,9 @@
         continue;
       }
       const r = 6 + Math.sqrt(s.n / max) * 12;
-      const avg = (s.sum / s.n).toFixed(1);
+      const avg = s.m ? '，平均強度 ' + (s.sum / s.m).toFixed(1) : '';
       svg +=
-        '<g class="bubble" tabindex="0" data-tip="' + f.name + '：' + s.n + ' 次，平均強度 ' + avg + '">' +
+        '<g class="bubble" tabindex="0" data-tip="' + f.name + '：' + s.n + ' 次' + avg + '">' +
         '<circle cx="' + x + '" cy="' + y + '" r="' + (r + 10) + '" fill="transparent"/>' +
         '<circle cx="' + x + '" cy="' + y + '" r="' + (r + 2) + '" class="ring"/>' +
         '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="hsl(' + f.hue + ',' + Math.round(Math.max(0.3, f.sat) * 100) + '%,58%)" fill-opacity="0.8"/>' +
@@ -266,7 +297,7 @@
    */
   function changeSVG(rows) {
     const W = 340;
-    const rowH = 30;
+    const rowH = 40;
     const nameW = 100;
     const labelRoom = 58;
     const H = rows.length * rowH + 26;
@@ -288,13 +319,14 @@
       const dir = d >= 0 ? 1 : -1;
       const color = d > 0 ? DOWN : d < 0 ? UP : '#6f909c';
       const val = (d > 0 ? '−' : d < 0 ? '+' : '±') + Math.abs(d).toFixed(1);
-      svg += '<g class="bar-row" tabindex="0" data-tip="' + t.name + '：' + r.n + ' 次，強度平均 ' + val + '">';
+      svg += '<g class="bar-row" tabindex="0" data-tip="' + t.name + '：' + r.n + ' 次裡有 ' + r.down + ' 次變小，強度平均 ' + val + '">';
       svg += '<rect x="0" y="' + (y - 5) + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>';
       svg += '<circle cx="6" cy="' + (y + 7) + '" r="4" fill="hsl(' + t.hue + ',70%,62%)"/>';
       svg += '<text x="16" y="' + (y + 11) + '" class="b-name">' + t.name + '</text>';
+      svg += '<text x="16" y="' + (y + 26) + '" class="b-sub">' + r.down + '/' + r.n + ' 次變小</text>';
       svg += '<path d="' + roundBar(base, y, len, 14, dir) + '" fill="' + color + '"/>';
       const tx = dir > 0 ? base + len + 5 : base - len - 5;
-      svg += '<text x="' + tx + '" y="' + (y + 11) + '" class="b-val" text-anchor="' + (dir > 0 ? 'start' : 'end') + '">' + val + '<tspan class="b-n"> ×' + r.n + '</tspan></text>';
+      svg += '<text x="' + tx + '" y="' + (y + 11) + '" class="b-val" text-anchor="' + (dir > 0 ? 'start' : 'end') + '">' + val + '</text>';
       svg += '</g>';
     });
     svg += '</svg></div>';

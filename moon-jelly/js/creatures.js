@@ -311,6 +311,8 @@
       this.ph = r() * TAU;
       this.hide = 0;
       this.hop = 0;
+      this.inCave = 0;
+      this.flee = null;
       this.appear = 1;
       this.shell = null;
     }
@@ -326,6 +328,29 @@
       if (this.x == null) this.x = this.xf * G.W;
       if (this.appear < 1) this.appear = Math.min(1, this.appear + dt * 0.8);
       if (this.hop > 0) this.hop = Math.max(0, this.hop - dt * 1.3);
+      // 有礁石洞的話，受驚的寄居蟹會跑進洞裡躲一下
+      if (this.flee != null) {
+        const d = this.flee - this.x;
+        if (Math.abs(d) < 6) {
+          this.flee = null;
+          this.inCave = U.rand(4, 7);
+        } else {
+          this.dir = d > 0 ? 1 : -1;
+          this.x += this.dir * 46 * G.unit * dt;
+          this.legPh += dt * 22;
+          this.state = 'walk';
+          return;
+        }
+      }
+      if (this.inCave > 0) {
+        this.inCave -= dt;
+        if (this.inCave <= 0) {
+          this.state = 'walk';
+          this.timer = U.rand(2, 4);
+          this.dir = Math.random() < 0.5 ? -1 : 1;
+        }
+        return;
+      }
       if (this.hide > 0) {
         this.hide -= dt;
         return;
@@ -354,9 +379,22 @@
         }
       }
     }
+    /** 被點到：有洞就跑進洞裡，沒有就縮進殼裡 */
+    startle() {
+      const cave = this.eco.habitat('cave');
+      if (cave && this.inCave <= 0 && this.flee == null) {
+        const cx = cave.x * this.eco.game.W;
+        if (Math.abs(cx - this.x) < this.eco.game.W * 0.6) {
+          this.flee = cx + U.rand(-8, 8);
+          return;
+        }
+      }
+      this.hide = 2.2;
+    }
     draw(ctx) {
       const G = this.eco.game;
       if (this.x == null) this.x = this.xf * G.W;
+      if (this.inCave > 0) return;
       const t = this.eco.t;
       const k = this.k;
       const hopY = Math.sin(Math.min(1, this.hop) * Math.PI) * 20 * G.unit;
@@ -468,7 +506,7 @@
       ctx.restore();
     }
     hit(x, y) {
-      if (this.x == null) return false;
+      if (this.x == null || this.inCave > 0) return false;
       const G = this.eco.game;
       const k = this.k;
       const cy = G.world.sandY(this.x) - 10 * k;
@@ -977,6 +1015,173 @@
   }
 
   /* ============================================================
+   * 海馬：先著陸。尾巴捲住一根海草，在水流裡待穩
+   * ============================================================ */
+  class Seahorse {
+    constructor(entry, eco) {
+      this.kind = 'seahorse';
+      this.entry = entry;
+      this.eco = eco;
+      const r = seedOf(entry.id + 'h');
+      this.xf = 0.08 + r() * 0.84;
+      this.slot = r();
+      this.hold = 0.42 + r() * 0.2;
+      this.len = 78 + r() * 34;
+      this.ph = r() * TAU;
+      this.face = r() < 0.5 ? -1 : 1;
+      this.appear = 1;
+      this.x = null;
+      this.y = null;
+      this.bx = null;
+    }
+    /** 這隻海馬捲著的那根海草，長在哪裡 */
+    baseX() {
+      const G = this.eco.game;
+      const bed = this.eco.bedX();
+      if (bed != null) return bed * G.W + (this.slot - 0.5) * 110 * G.unit;
+      return this.xf * G.W;
+    }
+    /** 海草上某一點（t = 0 在沙裡，1 在頂端） */
+    bladeAt(t, bx, base) {
+      const G = this.eco.game;
+      const u = G.unit;
+      const sway = Math.sin(this.eco.t * 0.7 + this.ph) * 10 * u + G.world.current * 6;
+      const L = this.len * u;
+      const cx = bx + sway * 0.4;
+      const cy = base - L * 0.55;
+      const ex = bx + sway;
+      const ey = base - L;
+      const m = 1 - t;
+      return [m * m * bx + 2 * m * t * cx + t * t * ex, m * m * base + 2 * m * t * cy + t * t * ey];
+    }
+    update(dt) {
+      const G = this.eco.game;
+      if (this.appear < 1) this.appear = Math.min(1, this.appear + dt * 0.7);
+      const tx = this.baseX();
+      this.bx = this.bx == null ? tx : this.bx + (tx - this.bx) * Math.min(1, dt * 0.5);
+      const [x, y] = this.bladeAt(this.hold, this.bx, G.world.sandY(this.bx) + 2);
+      this.x = x;
+      this.y = y;
+    }
+    pos() {
+      if (this.x == null) this.update(0);
+      return [this.x, this.y - 22 * this.eco.game.unit];
+    }
+    drawBlade(ctx) {
+      const G = this.eco.game;
+      const u = G.unit;
+      const bx = this.bx == null ? this.baseX() : this.bx;
+      const base = G.world.sandY(bx) + 2;
+      ctx.strokeStyle = 'hsla(128,34%,34%,0.95)';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 3.2 * u;
+      ctx.beginPath();
+      for (let i = 0; i <= 12; i++) {
+        const [x, y] = this.bladeAt(i / 12, bx, base);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = 'hsla(120,40%,52%,0.35)';
+      ctx.lineWidth = 1 * u;
+      ctx.stroke();
+    }
+    draw(ctx) {
+      const G = this.eco.game;
+      if (this.x == null) this.update(0);
+      const k = 1.45 * G.unit;
+      const t = this.eco.t;
+      const hue = famHue(this.entry.fam);
+      const sat = Math.min(0.55, famSat(this.entry.fam));
+      ctx.save();
+      ctx.globalAlpha = this.appear;
+      this.drawBlade(ctx);
+      ctx.globalCompositeOperation = 'lighter';
+      U.drawGlow(ctx, this.x, this.y - 18 * k, 40 * k, hue, sat, 0.6, 0.35);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.translate(this.x, this.y);
+      ctx.scale(this.face * k, k);
+      ctx.rotate(Math.sin(t * 0.9 + this.ph) * 0.06);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const body = U.hsla(hue, sat, 0.58, 1);
+      const dark = U.hsla(hue, sat, 0.38, 1);
+      // 尾巴：捲在海草上
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(4.5, -6);
+      ctx.quadraticCurveTo(4, -1, 1.5, 1.5);
+      ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.4, -0.3, Math.PI * 1.6);
+      ctx.stroke();
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.arc(0.4, 0.5, 1.1, Math.PI * 1.6, Math.PI * 3.2);
+      ctx.stroke();
+      // 背鰭：一直輕輕在拍
+      const fl = Math.sin(t * 14 + this.ph) * 1.2;
+      ctx.fillStyle = U.hsla(hue, sat * 0.6, 0.8, 0.7);
+      ctx.beginPath();
+      ctx.moveTo(1, -14);
+      ctx.quadraticCurveTo(-4.5 + fl, -17, -3.5 - fl, -21);
+      ctx.lineTo(0.2, -21);
+      ctx.closePath();
+      ctx.fill();
+      // 身體
+      const g = ctx.createLinearGradient(0, -36, 10, -6);
+      g.addColorStop(0, U.hsla(hue, sat, 0.7, 1));
+      g.addColorStop(1, body);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(2.5, -6);
+      ctx.bezierCurveTo(-0.5, -12, 1.2, -20, 0.4, -26);
+      ctx.bezierCurveTo(-0.6, -31, 2, -36, 6, -36);
+      ctx.lineTo(8.6, -35.2);
+      ctx.lineTo(14, -33.8);
+      ctx.lineTo(14.2, -31.9);
+      ctx.lineTo(8.4, -31);
+      ctx.bezierCurveTo(6.4, -29, 9.4, -24, 10.2, -19);
+      ctx.bezierCurveTo(11, -13, 8.2, -8, 5.4, -5.5);
+      ctx.closePath();
+      ctx.fill();
+      // 身上的環節
+      ctx.strokeStyle = U.hsla(hue, sat, 0.42, 0.6);
+      ctx.lineWidth = 0.6;
+      for (let i = 0; i < 6; i++) {
+        const yy = -9 - i * 3.2;
+        ctx.beginPath();
+        ctx.moveTo(1.6 + Math.abs(i - 3) * 0.15, yy);
+        ctx.lineTo(7.4 + (i < 3 ? i * 0.8 : (5 - i) * 0.9), yy + 0.8);
+        ctx.stroke();
+      }
+      // 頭冠與眼睛
+      ctx.fillStyle = dark;
+      ctx.beginPath();
+      ctx.moveTo(4.4, -36);
+      ctx.lineTo(4.8, -39);
+      ctx.lineTo(6.6, -36.2);
+      ctx.fill();
+      ctx.fillStyle = '#10141c';
+      ctx.beginPath();
+      ctx.arc(6.6, -33.2, 1.15, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.arc(7, -33.6, 0.4, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+    hit(x, y) {
+      if (this.x == null) return false;
+      const k = 1.45 * this.eco.game.unit;
+      return Math.abs(x - (this.x + 5 * k * this.face)) < 12 * k + 10 && y < this.y + 6 * k + 8 && y > this.y - 40 * k - 8;
+    }
+  }
+
+  /* ============================================================
    * 藍眼淚：先倒出來就好。碰到會亮，是水母和珊瑚的食物
    * ============================================================ */
   class Tears {
@@ -1276,6 +1481,28 @@
     }
   }
 
+  /**
+   * 珍珠：同一種感覺，至少七層、用過三種以上的陪法，才會結成一顆。
+   * 只用同一種方式陪它，貝殼裡最多留十二層，更舊的會被新的蓋過去。
+   * 這樣珍珠記錄的是「陪它的路徑」，而不是「它來了幾次」。
+   */
+  const PEARL_MIN = 7;
+  const PEARL_MAX = 12;
+  const PEARL_KINDS = 3;
+  function pearlChain(list) {
+    const done = [];
+    let cur = [];
+    for (const e of list) {
+      cur.push(e);
+      if (cur.length > PEARL_MAX) cur.shift();
+      if (cur.length >= PEARL_MIN && new Set(cur.map((x) => x.turn)).size >= PEARL_KINDS) {
+        done.push({ layers: cur.map((x) => x.turn), t: e.tt || e.t });
+        cur = [];
+      }
+    }
+    return { done, cur: cur.map((x) => x.turn) };
+  }
+
   /* ============================================================
    * 珍珠貝：同一種感覺來了很多次
    * ============================================================ */
@@ -1290,7 +1517,7 @@
       this.open = 0;
       this.cycleT = r() * 14;
       this.layers = [];
-      this.pearls = 0;
+      this.pearls = null;
       this.appear = 1;
     }
     update(dt) {
@@ -1623,6 +1850,7 @@
       this.schools = {};
       this.anemones = [];
       this.turtles = [];
+      this.seahorses = [];
       this.tears = new Tears(this);
       this.reefs = [new Reef(0.17, this), new Reef(0.74, this)];
       this.oysters = [];
@@ -1728,6 +1956,10 @@
       const stepE = E.filter((e) => e.turn === 'step' && e.step && e.step.status !== 'dropped').slice(-4);
       this.turtles = stepE.map((e) => reuse(this.turtles, e.id, () => new Turtle(e, this)));
 
+      // 海馬：先著陸
+      const groundE = E.filter((e) => e.turn === 'ground').slice(-8);
+      this.seahorses = groundE.map((e) => reuse(this.seahorses, e.id, () => new Seahorse(e, this)));
+
       // 藍眼淚：三天內倒出來的
       this.tears.setEntries(E.filter((e) => e.turn === 'release' && now - (e.tt || e.t) < 3 * DAY));
 
@@ -1748,11 +1980,11 @@
         .slice(0, 4);
       this.oysters = oy.map((f) => {
         const o = reuse(this.oysters, 'oy' + f, () => new Oyster(f, this));
-        const list = byFam[f];
-        const done = Math.floor(list.length / 7);
+        const chain = pearlChain(byFam[f]);
+        const done = chain.done.length;
         if (o.pearls != null && done > o.pearls && this.fresh) events.push({ type: 'pearl', fam: f });
         o.pearls = done;
-        o.layers = list.slice(done * 7).map((e) => e.turn);
+        o.layers = chain.cur;
         return o;
       });
 
@@ -1785,6 +2017,7 @@
       mark('lantern', this.lanterns.length > 0);
       mark('clown', this.anemones.length > 0);
       mark('turtle', this.turtles.length > 0);
+      mark('seahorse', this.seahorses.length > 0);
       mark('tears', E.some((e) => e.turn === 'release'));
       mark('coral', reefE.length > 0);
       mark('bottle', keepE.length > 0);
@@ -1800,14 +2033,17 @@
       const byFam = {};
       for (const e of this.entries) if (e.turn && e.fam) (byFam[e.fam] = byFam[e.fam] || []).push(e);
       const out = [];
-      for (const f of Object.keys(byFam)) {
-        const list = byFam[f];
-        for (let i = 0; i + 7 <= list.length; i += 7) {
-          const chunk = list.slice(i, i + 7);
-          out.push({ fam: f, layers: chunk.map((e) => e.turn), t: chunk[6].tt || chunk[6].t });
-        }
-      }
+      for (const f of Object.keys(byFam)) for (const p of pearlChain(byFam[f]).done) out.push(Object.assign({ fam: f }, p));
       return out.sort((a, b) => b.t - a.t);
+    }
+
+    /** 棲地（商店買的）：不會變出生物，只改變牠們待的地方 */
+    habitat(type) {
+      return this.game.state.decor.find((d) => d.type === type) || null;
+    }
+    bedX() {
+      const b = this.habitat('seagrass');
+      return b ? b.x : null;
     }
 
     spawnOrb(entry, onBurst, from) {
@@ -1823,11 +2059,28 @@
       const G = this.game;
       const hour = new Date().getHours();
       const night = hour >= 18 || hour < 6;
+      // 燈籠魚：晚上游上來、白天沉下去。有礁石洞的話白天待在它的陰影裡；有月光石的話晚上繞著它
+      const cave = night ? null : this.habitat('cave');
+      const moon = night ? this.habitat('moonstone') : null;
+      const u = G.unit;
       for (const n of Object.keys(this.schools)) {
         const s = this.schools[n];
-        const tx = G.W * (0.15 + U.noise(this.t * 0.02 + s.ph) * 0.7);
-        const baseY = night ? 0.26 : 0.56;
-        const ty = G.H * (baseY + (U.noise(this.t * 0.03 + s.ph + 40) - 0.5) * 0.2);
+        let tx;
+        let ty;
+        if (cave) {
+          const cx = cave.x * G.W;
+          tx = cx + (U.noise(this.t * 0.05 + s.ph) - 0.5) * 110 * u;
+          ty = G.world.sandY(cx) - (34 + U.noise(this.t * 0.04 + s.ph + 20) * 36) * u;
+        } else if (moon) {
+          const mx = moon.x * G.W;
+          const a = this.t * 0.25 + s.ph;
+          tx = mx + Math.cos(a) * 90 * u;
+          ty = G.world.sandY(mx) - 120 * u + Math.sin(a) * 36 * u;
+        } else {
+          tx = G.W * (0.15 + U.noise(this.t * 0.02 + s.ph) * 0.7);
+          const baseY = night ? 0.26 : 0.56;
+          ty = G.H * (baseY + (U.noise(this.t * 0.03 + s.ph + 40) - 0.5) * 0.2);
+        }
         s.x += (tx - s.x) * Math.min(1, dt * 0.15);
         s.y += (ty - s.y) * Math.min(1, dt * 0.1);
       }
@@ -1837,6 +2090,7 @@
       for (const f of this.lanterns) f.update(dt, this.schools[f.need]);
       for (const a of this.anemones) a.update(dt);
       for (const tt of this.turtles) tt.update(dt);
+      for (const h of this.seahorses) h.update(dt);
       this.tears.update(dt);
       for (const r of this.reefs) r.update(dt);
       for (const o of this.oysters) o.update(dt);
@@ -1854,6 +2108,7 @@
       for (const a of this.anemones) a.draw(ctx);
       for (const o of this.oysters) o.draw(ctx);
       if (this.octopus) this.octopus.draw(ctx);
+      for (const h of this.seahorses) h.draw(ctx);
       for (const s of this.spare) s.draw(ctx);
       for (const c of this.crabs) c.draw(ctx);
       for (const tt of this.turtles) if (!tt.done && tt.journey <= 0) tt.draw(ctx);
@@ -1882,6 +2137,7 @@
       for (const a of this.anemones) for (const f of a.fish) if (f.hit(x, y)) return f;
       for (let i = this.lanterns.length - 1; i >= 0; i--) if (this.lanterns[i].hit(x, y)) return this.lanterns[i];
       for (const tt of this.turtles) if (tt.hit(x, y)) return tt;
+      for (const h of this.seahorses) if (h.hit(x, y)) return h;
       for (const c of this.crabs) if (c.hit(x, y)) return c;
       for (const o of this.oysters) if (o.hit(x, y)) return o;
       if (this.octopus && this.octopus.hit(x, y)) return this.octopus;
@@ -1896,7 +2152,7 @@
 
     /** 新生出來的那隻，用來把光點引過去 */
     find(entryId) {
-      const all = [].concat(this.larvae, this.crabs, this.lanterns, this.turtles, this.bottles);
+      const all = [].concat(this.larvae, this.crabs, this.lanterns, this.turtles, this.seahorses, this.bottles);
       for (const c of all) if (c.entry && c.entry.id === entryId) return c;
       for (const a of this.anemones) for (const f of a.fish) if (f.entry.id === entryId) return f;
       return null;
