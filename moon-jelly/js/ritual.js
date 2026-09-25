@@ -104,7 +104,7 @@
     const next = () => {
       d.raw = $('rRaw').value.trim();
       d.keepRaw = $('rKeepRaw').checked;
-      if (F.isCrisis(d.raw)) R.show('care');
+      if (F.isCrisis(d.raw)) R.show('care', 'name');
       else R.show('name');
     };
     $('rNext').addEventListener('click', next);
@@ -118,7 +118,8 @@
   };
 
   /* 真的撐不住的時候 */
-  VIEW.care = (body) => {
+  VIEW.care = (body, next) => {
+    const back = next === 'again' ? 'do' : 'pour';
     body.innerHTML =
       '<h2 class="r-title">謝謝你願意寫出來</h2>' +
       '<p class="r-sub">如果你現在有傷害自己的念頭，請讓一個真的人陪你一下。打電話過去，不用準備好要說什麼。</p>' +
@@ -127,8 +128,8 @@
       '</ul>' +
       '<p class="r-note">你不用一個人撐著。如果有立即的危險，請撥 119 或 110。</p>' +
       '<div class="btn-row between"><button class="btn ghost" id="rCareBack">回去改一下</button><button class="btn" id="rCareGo">我知道了，繼續</button></div>';
-    $('rCareBack').addEventListener('click', () => R.show('pour'));
-    $('rCareGo').addEventListener('click', () => R.show('name'));
+    $('rCareBack').addEventListener('click', () => R.show(back));
+    $('rCareGo').addEventListener('click', () => R.show(next || 'name'));
   };
 
   /* ---------- 2. 取名字 ---------- */
@@ -332,7 +333,9 @@
     next.addEventListener('click', () => {
       d.text = text ? text.value.trim() : '';
       if (d.turn === 'thank') d.tell = !!($('rTell') && $('rTell').checked);
-      R.show('again');
+      // 不只第一步：任何一個寫字的地方出現傷害自己的念頭，都先停下來
+      if (F.isCrisis(d.text)) R.show('care', 'again');
+      else R.show('again');
     });
 
     if (d.turn === 'allow') surf();
