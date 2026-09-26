@@ -324,7 +324,6 @@
     const inv = Game.state.inventory;
     const types = MJ.Food.TYPES;
     UI.el.feedPop.innerHTML =
-      '<div class="pop-title">要餵什麼？</div>' +
       Object.keys(types)
         .map((k) => {
           const n = k === 'plankton' ? '∞' : '×' + (inv[k] || 0);
