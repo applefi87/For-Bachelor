@@ -923,7 +923,7 @@
       A.hatch();
       // 呼吸、晚安、拍照的時候不跳視窗打擾，只輕輕說一聲
       if (Game.mode === 'normal' || Game.mode === 'arrange') MJ.UI.birthModal(j, found);
-      else MJ.UI.toast('「' + j.name + '」出生了。');
+      else MJ.UI.toast('「' + j.name + '」出生了。', 'soft', null, () => MJ.UI.callout.show(j, { auto: true, status: '剛出生' }));
     }
     return j;
   };
@@ -962,7 +962,7 @@
   Game.onGrown = (j) => {
     if (j.visitor || !Game.started) return;
     A.arpeggio(9, 3, 0.1, 0.1);
-    MJ.UI.toast('「' + j.name + '」長大了！現在可以幫牠找伴侶。');
+    MJ.UI.toast('「' + j.name + '」長大了！現在可以幫牠找伴侶。', 'soft', null, () => MJ.UI.callout.show(j, { auto: true, status: '長大了' }));
   };
 
   /* ================= 商店 ================= */
@@ -1783,11 +1783,12 @@
         MJ.UI.toast('珊瑚礁長得夠大了，一群雀鯛搬了進來。', 'discover');
       } else if (ev.type === 'octopus') {
         A.discover();
-        MJ.UI.toast('一隻章魚從石頭後面探出頭來。', 'discover', '牠皮膚上的顏色，是你這個月用過的每一種陪法。');
+        MJ.UI.toast('一隻章魚從石頭後面探出頭來。', 'discover', '牠皮膚上的顏色，是你這個月用過的每一種陪法。', () => MJ.UI.callout.show(Game.eco.octopus, { auto: true, status: '剛出現' }));
       } else if (ev.type === 'pearl') {
         A.discover();
         const p = Game.eco.pearls().find((q) => q.fam === ev.fam);
-        if (p) setTimeout(() => MJ.UI.pearlModal(p), 2600);
+        const oy = Game.eco.oysters.find((q) => q.fam === ev.fam);
+        if (p) setTimeout(() => MJ.UI.pearlModal(p, () => MJ.UI.callout.show(oy, { auto: true, status: '結出珍珠' })), 2600);
       } else if (ev.type === 'species') {
         const sp = F.SPECIES[ev.id];
         if (sp && ev.id !== 'larva') MJ.UI.toast('生態新發現：' + sp.name, 'discover', '在圖鑑的「生態」可以看到牠');
@@ -1877,7 +1878,7 @@
       if (tt) {
         tt.journey = 22;
         tt.dropped = false;
-        MJ.UI.toast('海龜出發去旅行了。牠會帶點東西回來。', 'discover');
+        MJ.UI.toast('海龜出發去旅行了。牠會帶點東西回來。', 'discover', null, () => MJ.UI.callout.show(tt, { auto: true, status: '出發去旅行' }));
       } else {
         gift.revealAt = Date.now();
         Game.onGiftArrive(null);
@@ -1902,7 +1903,8 @@
       Game.fx.spark(turtle.x, turtle.y, 48, 16, { speed: 60 });
       A.discover();
     }
-    if (!events.some((ev) => ev.type === 'chain')) MJ.UI.toast('海龜回來了，帶回一個殼，放在沙地上。', 'discover', '等哪隻寄居蟹長大了，就會搬進去。');
+    if (!events.some((ev) => ev.type === 'chain'))
+      MJ.UI.toast('海龜回來了，帶回一個殼，放在沙地上。', 'discover', '等哪隻寄居蟹長大了，就會搬進去。', turtle ? () => MJ.UI.callout.show(turtle, { auto: true, status: '回來了' }) : null);
     Game.handleEcoEvents(events);
     Game.save();
   };

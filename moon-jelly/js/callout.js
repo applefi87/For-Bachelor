@@ -474,6 +474,12 @@
   CO.show = (thing, o = {}) => {
     if (!thing || !Game) return;
     if (o.auto) {
+      // 你正看著的就是牠：只換上方的小字，不再排一次
+      if (CO.open && same(CO.thing, thing)) {
+        CO.status = o.status || CO.status;
+        render();
+        return;
+      }
       CO.queue.push({ thing, status: o.status || null, at: Date.now() });
       return;
     }

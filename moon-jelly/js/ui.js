@@ -264,13 +264,14 @@
   };
   UI.isQuiet = () => Date.now() < UI.quietUntil || !!(MJ.Ritual && MJ.Ritual.open);
 
-  UI.toast = (text, kind = 'soft', sub = null) => {
+  /** then：這則通知真的出現、讀完淡掉之後才做的事（例如讓那隻生物的說明牌出來） */
+  UI.toast = (text, kind = 'soft', sub = null, then = null) => {
     if (UI.pendingToasts) {
-      UI.pendingToasts.push([text, kind, sub]);
+      UI.pendingToasts.push([text, kind, sub, then]);
       return;
     }
     if ((kind === 'achievement' || kind === 'discover') && UI.isQuiet()) {
-      UI.deferred.push([text, kind, sub]);
+      UI.deferred.push([text, kind, sub, then]);
       return;
     }
     const box = UI.el.toasts;
@@ -283,6 +284,7 @@
     setTimeout(() => {
       el.classList.add('out');
       setTimeout(() => el.remove(), 450);
+      if (then) then();
     }, life);
   };
 
