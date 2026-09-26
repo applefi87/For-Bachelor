@@ -13,11 +13,6 @@
   overflow: hidden;
 }
 
-/* 模式中 HUD 與底座淡出（它們自己的 transition 負責時間） */
-body.ritual-open #hud,
-body.ritual-open #dock,
-body.ritual-open #hint { opacity: 0; pointer-events: none; }
-
 .ritual-card {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;

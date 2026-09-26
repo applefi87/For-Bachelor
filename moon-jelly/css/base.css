@@ -71,25 +71,6 @@
   --warn: var(--danger);
   --f-print: var(--f-sans);
 
-  /* ---- 舊的變數名：只為了讓還沒改寫的樣式不壞。新的程式不要用，整合時刪除。 ---- */
-  --abyss: var(--sea-3);
-  --deep: var(--plate);
-  --ink: var(--ink-1);
-  --mist: var(--ink-2);
-  --faint: var(--ink-3);
-  --glass: var(--plate-a);
-  --glass-strong: var(--plate-a);
-  --line: var(--rule);
-  --line-2: var(--rule-strong);
-  --coral: var(--ink-1);
-  --coral-ink: var(--plate);
-  --glow: var(--ink-1);
-  --sea: var(--accent);
-  --rose: var(--ink-2);
-  --r: 0px;
-  --font: var(--f-sans);
-  --font-en: var(--f-latin);
-
   color-scheme: dark;
   font-synthesis: none;
 }
@@ -275,9 +256,7 @@ hr, .hr { height: 0; margin: 16px 0; border: 0; border-top: 1px solid var(--hair
 .btn-2:disabled, .btn.ghost:disabled { color: var(--fg-3); text-decoration: none; cursor: not-allowed; }
 
 /* 文字連結：退路與略過 */
-.btn-3,
-.btn.quiet,
-.btn.ghost.quiet {
+.btn-3 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -295,7 +274,7 @@ hr, .hr { height: 0; margin: 16px 0; border: 0; border-top: 1px solid var(--hair
   text-decoration: none;
 }
 
-.btn-3:hover, .btn-3:focus-visible, .btn.quiet:hover, .btn.ghost.quiet:hover { color: var(--fg); text-decoration: underline 1px; text-underline-offset: 0.3em; }
+.btn-3:hover, .btn-3:focus-visible { color: var(--fg); text-decoration: underline 1px; text-underline-offset: 0.3em; }
 
 /* 刪除、重來：文字＋底線，不做實心 */
 .btn-2.danger, .btn-3.danger, .btn.danger {
@@ -308,22 +287,20 @@ hr, .hr { height: 0; margin: 16px 0; border: 0; border-top: 1px solid var(--hair
   text-underline-offset: 0.3em;
 }
 
-/* 舊的尺寸修飾：尺寸只有一種 */
-.btn.sm, .btn.big { font-size: var(--t4); }
 .btn.wide { width: 100%; justify-content: flex-start; }
 
 /* 按鈕列：左對齊，主要按鈕推到行尾；間距 24 */
 .btn-row, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
-.btn-row > .btn:not(.ghost):not(.quiet):not(.danger) { margin-left: auto; }
+.btn-row > .btn:not(.ghost):not(.danger) { margin-left: auto; }
 .btn-row.center, .btn-row.between { justify-content: flex-start; }
 
-/* 介面上不用線條圖示（DESIGN.md §6.7）。舊的圖示按鈕先變成純文字位置。 */
+/* 介面上不用線條圖示（DESIGN.md §6.7）。只剩危機元件的電話圖示還用 .i。 */
 .i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter; flex: none; }
 .i.big { width: 28px; height: 28px; }
 
 /* ---------------- 切換檢視：一排文字＋底線（§6.2） ---------------- */
 
-.tabs, .seg {
+.tabs {
   display: flex;
   flex-wrap: nowrap;
   gap: 24px;
@@ -332,9 +309,9 @@ hr, .hr { height: 0; margin: 16px 0; border: 0; border-top: 1px solid var(--hair
   border-bottom: 1px solid var(--hair);
 }
 
-.tabs::-webkit-scrollbar, .seg::-webkit-scrollbar { display: none; }
+.tabs::-webkit-scrollbar { display: none; }
 
-.tab, .seg-btn {
+.tab {
   flex: none;
   display: inline-flex;
   align-items: baseline;
@@ -354,13 +331,12 @@ hr, .hr { height: 0; margin: 16px 0; border: 0; border-top: 1px solid var(--hair
   transition: color var(--dur-fast) linear;
 }
 
-.tab:hover, .seg-btn:hover { color: var(--fg); }
+.tab:hover { color: var(--fg); }
 
-.tab.on, .tab[aria-selected="true"], .seg-btn.on, .seg-btn[aria-checked="true"] { color: var(--fg); border-bottom-color: var(--mark); }
+.tab.on, .tab[aria-selected="true"], .tab[aria-checked="true"] { color: var(--fg); border-bottom-color: var(--mark); }
 
-.tab small, .seg-btn small { font-family: var(--f-mono); font-size: var(--t6); color: var(--fg-3); }
+.tab small { font-family: var(--f-mono); font-size: var(--t6); color: var(--fg-3); }
 
-.seg.wrap { flex-wrap: nowrap; }
 
 /* ---------------- 直式清單 ---------------- */
 
@@ -379,12 +355,10 @@ hr, .hr { height: 0; margin: 16px 0; border: 0; border-top: 1px solid var(--hair
 
 .row:last-child { border-bottom: 0; }
 
-.row.clickable { cursor: pointer; }
 
-.row.clickable:hover .row-title { text-decoration: underline 1px; text-underline-offset: 0.3em; }
 
 /* 目前這一個：左緣 2px 短線 */
-.row.on::before, .choice.on::before, .is-current::before {
+.row.on::before, .is-current::before {
   content: "";
   position: absolute;
   left: -12px;
@@ -515,7 +489,7 @@ input[type="checkbox"].box {
 .check b { font-weight: 400; font-size: var(--t4); }
 .check small { font-size: var(--t5); line-height: var(--lh5); color: var(--fg-3); }
 
-/* 舊的開關：外觀改成勾選框 */
+/* 開關：外觀就是勾選框 */
 .toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 48px; padding: 12px 0; border-bottom: 1px solid var(--hair); cursor: pointer; }
 .toggle span { display: grid; gap: 2px; }
 .toggle b { font-size: var(--t4); font-weight: 400; }
@@ -568,8 +542,7 @@ input[type="checkbox"].box {
 
 /* ---------------- 書寫（§6.3）：沒有框，只有書寫線 ---------------- */
 
-.lined,
-.field {
+.lined {
   display: block;
   width: 100%;
   margin: 0;
@@ -588,15 +561,15 @@ input[type="checkbox"].box {
   overflow-wrap: anywhere;
 }
 
-input.lined, input.field { height: 44px; line-height: 44px; background: none; }
+input.lined { height: 44px; line-height: 44px; background: none; }
 
-.lined::placeholder, .field::placeholder { color: var(--fg-3); font-family: var(--f-print); opacity: 1; }
+.lined::placeholder { color: var(--fg-3); font-family: var(--f-print); opacity: 1; }
 
-.lined:focus, .field:focus { outline: none; border-bottom: 2px solid var(--focus); margin-bottom: -1px; box-shadow: none; }
+.lined:focus { outline: none; border-bottom: 2px solid var(--focus); margin-bottom: -1px; box-shadow: none; }
 
 .code { display: block; width: 100%; padding: 8px; border: 1px solid var(--edge); border-radius: 0; background: none; color: var(--fg); font-family: var(--f-mono); font-size: var(--t6); resize: vertical; margin-bottom: 8px; }
 
-/* ---------------- 舊元件，先換成新的樣子，之後各區塊會改寫 ---------------- */
+/* ---------------- 其他共用的小元件 ---------------- */
 
 .chips { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .chips.center { justify-content: flex-start; }
@@ -609,7 +582,6 @@ input.lined, input.field { height: 44px; line-height: 44px; background: none; }
 
 .bar { height: 4px; border-radius: 0; background: var(--hair); overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; border-radius: 0; background: var(--fg); transition: width 0.6s var(--ease); }
-.bar-happy i, .bar-grow i { background: var(--fg); }
 
 .portrait { display: block; border-radius: 0; background: var(--plate); border: 0; }
 .portrait.sm { width: 56px; height: 56px; border-radius: 0; }
@@ -618,13 +590,7 @@ input.lined, input.field { height: 44px; line-height: 44px; background: none; }
 .portrait.lg { width: 160px; height: 160px; margin: 0; border-radius: 0; }
 .portrait.unknown { display: grid; place-items: center; color: var(--fg-3); font-size: var(--t4); border: 1px solid var(--hair); background: none; }
 
-.choice-list { display: grid; }
-.choice { position: relative; display: grid; gap: 2px; min-height: 48px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--hair); border-radius: 0; background: none; text-align: left; }
-.choice b { display: flex; justify-content: space-between; gap: 8px; font-size: var(--t4); }
-.choice small { color: var(--fg-2); font-size: var(--t5); }
-.choice.on { background: none; border-color: var(--hair); }
 
-.mono { font-family: var(--f-latin); font-style: italic; font-weight: 400; color: var(--fg-2); letter-spacing: 0; font-size: var(--t4); }
 
 /* ---------------- 動態 ---------------- */
 

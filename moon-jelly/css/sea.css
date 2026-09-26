@@ -304,7 +304,9 @@ body.mode-breath .toasts, body.mode-sleep .toasts, body.mode-photo .toasts,
 body.card-open .hint, body.feed-open .hint,
 body.mode-sleep .hud, body.mode-sleep .dock, body.mode-sleep .hint,
 body.mode-photo .hud, body.mode-photo .dock, body.mode-photo .hint,
-body.mode-arrange .hud, body.mode-arrange .dock, body.mode-arrange .hint {
+body.mode-arrange .hud, body.mode-arrange .dock, body.mode-arrange .hint,
+body:has(#modal:not([hidden]) > .modal-card.paper) .hud, body:has(#modal:not([hidden]) > .modal-card.paper) .hint,
+body:has(#sheet.open) .hint {
   opacity: 0;
   pointer-events: none;
 }
