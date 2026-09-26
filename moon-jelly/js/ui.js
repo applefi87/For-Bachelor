@@ -9,29 +9,9 @@
   const esc = U.escape;
 
   /* ---------- 線條圖示 ----------
-   * 介面上已經不用圖示（DESIGN.md §6.7）。這張表和 UI.icon 只為了還沒改寫的檔案先不壞，
-   * 海的介面自己不再輸出任何圖示。 */
-  const ICONS = {
-    feed: '<circle cx="7" cy="5.5" r="1.5"/><circle cx="14.5" cy="8" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="16.5" cy="15" r="1.5"/><circle cx="11" cy="19" r="1.5"/>',
-    breath: '<circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6" opacity=".65"/><circle cx="12" cy="12" r="9.5" opacity=".35"/>',
-    codex: '<path d="M5 5a1.8 1.8 0 0 1 1.8-1.8H19v14.6H6.8A1.8 1.8 0 0 0 5 19.6z"/><path d="M5 19.6a1.8 1.8 0 0 0 1.8 1.8H19"/>',
-    settings: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
-    letter: '<rect x="3.5" y="5.5" width="17" height="13"/><path d="M4 7l8 6 8-6"/>',
-    camera: '<rect x="3" y="7" width="18" height="13"/><circle cx="12" cy="13.5" r="3.6"/>',
-    moon: '<path d="M19.5 14.5A7.8 7.8 0 1 1 9.5 4.5a6.2 6.2 0 0 0 10 10z"/>',
-    close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
-    back: '<path d="M14.5 5.5L8 12l6.5 6.5"/>',
-    jelly: '<path d="M5 12a7 7 0 0 1 14 0z"/><path d="M8.5 12c0 3-1 5-1.2 8M12 12v8.5M15.5 12c0 3 1 5 1.2 8"/>',
-    trophy: '<path d="M12 3.8l2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z"/>',
-    diary: '<rect x="4" y="5" width="16" height="15"/><path d="M4 10h16M9 3v4M15 3v4"/>',
-    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.4"/>',
-    heart: '<path d="M12 19s-7-4.4-7-9.3A3.9 3.9 0 0 1 12 7.4a3.9 3.9 0 0 1 7 2.3C19 14.6 12 19 12 19z"/>',
-    arrange: '<path d="M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/>',
-    pearl: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="2"/>',
-    octo: '<path d="M7 12a5 5 0 0 1 10 0v2H7z"/><path d="M8 14c-1 2-2.5 3-4 3M10 14c-.3 2.5-1 4-2.3 5M14 14c.3 2.5 1 4 2.3 5M16 14c1 2 2.5 3 4 3"/>',
-  };
-  Object.assign(ICONS, MJ.Feelings.ICONS);
-  const icon = (n, cls = 'i') => '<svg class="' + cls + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
+   * 介面上已經不用圖示（DESIGN.md §6.7），全部換成文字。UI.icon 只留一個空殼，
+   * 萬一還有舊的呼叫也不會壞，而且不會畫出任何東西。 */
+  const icon = () => '';
   const F = MJ.Feelings;
 
   /* ---------- 格式（DESIGN.md §4.2） ---------- */
@@ -65,7 +45,7 @@
   };
   /** 稀有度：文字＋等寬，沒有星星 */
   const starsHTML = (n) => '<span class="num stars" aria-label="稀有度 ' + n + '/5">' + n + '/5</span>';
-  const colorCss = (g, l = 70) => 'hsl(' + Math.round(g.hue) + ',' + Math.round(Math.max(g.sat, 0.15) * 100) + '%,' + l + '%)';
+  const colorCss = (g, l = 70) => 'hsl(' + Math.round(g.hue) + ',' + Math.round(U.clamp(g.sat, 0, 1) * 100) + '%,' + l + '%)';
 
   /** 學名：F.SPECIES[id].latin／.latinUp（世界區塊）；還沒有時用和紙上一樣的表。
    *  只有真的屬名、種名斜體，科以上（-idae、-oidea）正體；珊瑚、瓶中信、幼生不加。 */
@@ -73,6 +53,10 @@
   const NO_LATIN = ['coral', 'bottle', 'larva'];
   const latinOf = (id) => {
     if (NO_LATIN.includes(id)) return {};
+    if (typeof MJ.Feelings.latinOf === 'function') {
+      const r = MJ.Feelings.latinOf(id);
+      return r && r.latin ? { latin: r.latin, latinUp: !!r.up } : {};
+    }
     const sp = MJ.Feelings.SPECIES[id] || {};
     const upText = typeof sp.latinUp === 'string' ? sp.latinUp : '';
     const text = sp.latin || upText || LATIN[id];
@@ -120,10 +104,6 @@
       feelBtn: document.querySelector('#dock [data-act="worry"]'),
     };
 
-    // 還沒改寫的按鈕若只靠圖示，先換成它的名字（不再畫圖示）
-    document.querySelectorAll('[data-icon]').forEach((el) => {
-      if (!el.textContent.trim() && el.getAttribute('aria-label')) el.textContent = el.getAttribute('aria-label');
-    });
     UI.updateSound();
 
     const introSub = $('introSub');
@@ -577,26 +557,37 @@
         else handle.closed = true;
       },
     };
-    UI.showModal((card) => {
-      // 手機上抽屜蓋住海：先收起來，讓牌子指得到生物
-      if (narrow() && UI.sheetKind) UI.closeSheet();
-      const { html, acts } = labelHTML(Object.assign({ kind }, opts));
-      card.innerHTML = html;
-      if (card.querySelector('#lbName')) card.setAttribute('aria-labelledby', 'lbName');
-      else card.setAttribute('aria-label', card.textContent.trim().slice(0, 40));
-      card.querySelectorAll('[data-lb]').forEach((b) =>
-        b.addEventListener('click', () => {
-          const a = acts[+b.dataset.lb];
-          if (a.keep) {
-            if (a.onClick) a.onClick(b);
-            return;
-          }
-          handle.close();
-          if (a.onClick) a.onClick();
-        })
-      );
-      if (opts.onRender) opts.onRender(card, handle);
-    }, mopts);
+    const show = () =>
+      UI.showModal((card) => {
+        // 手機上抽屜蓋住海：你自己點的牌子先把抽屜收起來，讓牌子指得到生物
+        if (narrow() && UI.sheetKind) UI.closeSheet();
+        const { html, acts } = labelHTML(Object.assign({ kind }, opts));
+        card.innerHTML = html;
+        if (card.querySelector('#lbName')) card.setAttribute('aria-labelledby', 'lbName');
+        else card.setAttribute('aria-label', card.textContent.trim().slice(0, 40));
+        card.querySelectorAll('[data-lb]').forEach((b) =>
+          b.addEventListener('click', () => {
+            const a = acts[+b.dataset.lb];
+            if (a.keep) {
+              if (a.onClick) a.onClick(b);
+              return;
+            }
+            handle.close();
+            if (a.onClick) a.onClick();
+          })
+        );
+        if (opts.onRender) opts.onRender(card, handle);
+      }, mopts);
+    // 自己出現的牌子（出生、小事）不收掉你正在看的抽屜：手機上等抽屜關上再出來
+    if (opts.wait && narrow() && UI.sheetKind) {
+      const iv = setInterval(() => {
+        if (mopts.cancelled) return clearInterval(iv);
+        if (!UI.sheetKind) {
+          clearInterval(iv);
+          show();
+        }
+      }, 400);
+    } else show();
     return handle;
   };
 
@@ -606,20 +597,41 @@
    */
   UI.note = (text, o = {}) => {
     const t = typeof o.target === 'function' ? o.target : null;
-    const first = t ? safeCall(t) : null;
-    const busy = (MJ.Ritual && MJ.Ritual.open) || (UI.modalOpenNow && UI.modalKind !== 'note') || (Game && Game.mode !== 'normal') || UI.pendingToasts;
-    if (!first || busy) {
-      UI.toast(text, 'soft', o.sub || null);
+    // 儀式、別的牌子、模式、手機上開著的抽屜（蓋住海）：改走通知欄，不收掉你正在看的東西
+    const busy = () => (MJ.Ritual && MJ.Ritual.open) || (UI.modalOpenNow && UI.modalKind !== 'note') || (Game && Game.mode !== 'normal') || UI.pendingToasts || (narrow() && UI.sheetKind);
+    const toast = () => UI.toast(text, 'soft', o.sub || null);
+    if (!t || busy()) {
+      toast();
       return { close() {} };
     }
     const timeout = o.timeout === 0 ? 0 : o.timeout || 6000;
-    return UI.label({
-      kind: 'note',
-      target: t,
-      body: '<p class="lb-text">' + esc(text) + '</p>' + (o.sub ? '<p class="lb-note">' + esc(o.sub) + '</p>' : ''),
-      actions: timeout ? [] : [{ label: '知道了' }],
-      timeout,
-    });
+    let handle = null;
+    let cancelled = false;
+    let tries = 0;
+    // 生物還在淡入時 target() 會先回傳 null：等牠一下（最多約 1.5 秒），等不到就改走通知欄
+    const attempt = () => {
+      if (cancelled) return;
+      if (busy()) return toast();
+      if (safeCall(t)) {
+        handle = UI.label({
+          kind: 'note',
+          target: t,
+          body: '<p class="lb-text">' + esc(text) + '</p>' + (o.sub ? '<p class="lb-note">' + esc(o.sub) + '</p>' : ''),
+          actions: timeout ? [] : [{ label: '知道了' }],
+          timeout,
+        });
+        return;
+      }
+      if (++tries > 15) return toast();
+      setTimeout(attempt, 100);
+    };
+    attempt();
+    return {
+      close() {
+        cancelled = true;
+        if (handle) handle.close();
+      },
+    };
   };
 
   const safeCall = (fn) => {
@@ -649,8 +661,8 @@
     LB.card = card;
     LB.opts = o;
     LB.target = typeof o.target === 'function' ? o.target : null;
-    LB.next = performance.now() + 900;
     const t = readTarget();
+    LB.next = performance.now() + (t ? 900 : 200);
     placeLabel(card, t);
     // 目標圈 120ms → 線描出 200ms → 牌子 200ms；沒有目標時牌子直接亮起
     card.style.setProperty('--lb-delay', t ? '320ms' : '0ms');
@@ -690,9 +702,12 @@
     const svg = UI.el.leader;
     const t = readTarget();
     if (!t) svg.classList.add('lost');
-    else {
-      if (svg.classList.contains('lost')) svg.classList.remove('lost');
-      if (!LB.moving) {
+    else if (!LB.moving) {
+      if (!LB.face) {
+        // 一開始還找不到生物（淡入中）：找到的那一刻才把牌子放到牠旁邊、描出線
+        if (performance.now() >= LB.next) relocate();
+      } else {
+        if (svg.classList.contains('lost')) svg.classList.remove('lost');
         drawLeader(t);
         maybeMove(t);
       }
@@ -804,22 +819,40 @@
       far = Math.hypot(ex - x, R.top + LB.nameMid - y) > 420;
     }
     if (!overlap && !wrong && !far) return;
+    relocate();
+  };
+
+  /** 牌子換位置：舊的 160ms 淡出、在新位置亮起；第一次找到生物時，圈與線照順序描出來 */
+  const relocate = () => {
     const card = LB.card;
     const h = LB.handle;
+    if (!card || !h) return;
     LB.moving = true;
-    LB.next = now + 1600;
+    LB.next = performance.now() + 1600;
+    const shown = card.classList.contains('show');
     card.style.setProperty('--lb-delay', '0ms');
     card.classList.remove('show');
-    UI.el.leader.classList.add('lost');
-    setTimeout(() => {
-      if (LB.handle !== h || h.closed) return;
-      const t2 = readTarget();
-      placeLabel(card, t2);
-      if (t2) drawLeader(t2);
-      card.classList.add('show');
-      UI.el.leader.classList.remove('lost');
-      LB.moving = false;
-    }, 160);
+    const svg = UI.el.leader;
+    svg.classList.add('lost');
+    setTimeout(
+      () => {
+        if (LB.handle !== h || h.closed) return;
+        const t2 = readTarget();
+        placeLabel(card, t2);
+        if (t2) {
+          drawLeader(t2);
+          if (!svg.classList.contains('on')) {
+            svg.classList.remove('lost');
+            svg.classList.add('on');
+            card.style.setProperty('--lb-delay', '320ms');
+          }
+        }
+        svg.classList.remove('lost');
+        card.classList.add('show');
+        LB.moving = false;
+      },
+      shown ? 160 : 0
+    );
   };
 
   /* ================= 餵食選單 ================= */
@@ -1202,7 +1235,8 @@
     if (done) {
       const info = UI.breathInfo || { cycles: 0, t0: Date.now() };
       const sec = Math.round((Date.now() - info.t0) / 1000);
-      UI.toast('呼吸 ' + info.cycles + ' 輪，' + Math.floor(sec / 60) + ':' + pad2(sec % 60), 'soft', reward ? '+' + reward + ' 光' : null);
+      const text = typeof C.breathDoneText === 'function' ? C.breathDoneText(info.cycles, sec) : '呼吸 ' + info.cycles + ' 輪，' + Math.floor(sec / 60) + ':' + pad2(sec % 60);
+      UI.toast(text, 'soft', reward ? '+' + reward + ' 光' : null);
     }
   };
 

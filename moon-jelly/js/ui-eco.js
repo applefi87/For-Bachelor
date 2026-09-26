@@ -30,7 +30,7 @@
   /** 指示線的目標：優先用 Game.targetOf；珊瑚這種沒有位置的，退回它所在的珊瑚礁 */
   const targetFor = (thing) => {
     if (!thing || !Game.targetOf) return null;
-    if (thing.kind === 'coral' && thing.reef) return Game.targetOf(thing.reef);
+    if (thing.kind === 'coral' && thing.reef && typeof thing.anchor !== 'function') return Game.targetOf(thing.reef);
     return Game.targetOf(thing);
   };
 
@@ -161,7 +161,7 @@
     const sp = F.SPECIES[spId] || {};
     const e = c.entry || (c.item && c.item.entry) || null;
     const detail = { label: '詳細 →', onClick: () => UI.openSheet('creature', c) };
-    const o = Object.assign({ target: targetFor(c), no: entryNo(e), words: sp.name, rows: [], actions: [detail] }, latinOf(spId));
+    const o = Object.assign({ target: targetFor(c), no: entryNo(e), words: sp.name, rows: [], actions: [detail] }, latinOf(kind));
     const add = (r) => r && o.rows.length < 4 && o.rows.push(r);
 
     if (kind === 'larva') {
@@ -203,7 +203,6 @@
       add(dateRow(e));
     } else if (kind === 'anemone') {
       o.words = '海葵';
-      delete o.latin;
       o.no = null;
       add(['句子', '<span class="num">' + (c.entries ? c.entries.length : 0) + '</span> 句']);
       add(['住著', '小丑魚']);
@@ -254,7 +253,7 @@
     const kind = c.kind;
     const spId = KIND_SPECIES[kind] || 'larva';
     const sp = F.SPECIES[spId];
-    const lat = latinOf(spId);
+    const lat = latinOf(kind);
     let title = sp.name;
     let html = '';
     const facts = [];
