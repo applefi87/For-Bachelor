@@ -20,33 +20,31 @@
 <canvas id="sea" aria-label="水族箱。點水面可以餵食，按住水母滑動可以摸摸牠。"></canvas>
 
 <header id="hud" class="hud">
-  <div class="brand">
-    <div class="logo">海月<span class="logo-en">Moon Jelly Aquarium</span></div>
-    <div class="light" title="光：水母們發出來的光，可以在商店使用">
-      <span class="light-dot"></span><span id="lightNum" class="light-num">0</span><span class="light-unit">光</span><span id="lightRate" class="light-rate">+0.0 / 秒</span>
-    </div>
+  <div class="hud-id">
+    <p class="hud-name">海月水母館</p>
+    <p class="hud-light" title="光：水母發出的光，在商店使用"><span class="light-dot" aria-hidden="true"></span><span class="hud-k">光</span><span id="lightNum" class="num hud-num">0</span><span id="lightRate" class="num hud-rate">+0/小時</span></p>
   </div>
-  <div class="hud-actions">
-    <button class="icon-btn letter-btn" id="btnLetter" hidden aria-label="拆開今天海的來信" data-icon="letter"></button>
-    <button class="icon-btn" id="btnSound" aria-label="關掉聲音"></button>
-    <button class="icon-btn" id="btnSettings" aria-label="聲音與設定" data-icon="settings"></button>
-  </div>
+  <nav class="hud-actions" aria-label="館內">
+    <button class="hud-btn" id="btnLetter" hidden aria-label="今天的信，未拆">來信</button>
+    <button class="hud-btn" id="btnSound" aria-pressed="true">聲音 開</button>
+    <button class="hud-btn" id="btnSettings">設定</button>
+  </nav>
 </header>
 
-<div id="hint" class="hint" hidden><span id="hintText"></span><button id="hintClose" class="hint-x" aria-label="不再顯示提示">×</button></div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
 
-<div id="feedPop" class="popover" aria-hidden="true"></div>
+<div id="hint" class="hint" hidden><p id="hintText" class="hint-text"></p><button id="hintClose" class="btn-2" aria-label="知道了，不再顯示提示">知道了</button></div>
+
+<div id="feedPop" class="feed-menu" aria-hidden="true"></div>
 
 <nav id="dock" class="dock" aria-label="主要功能">
-  <button data-act="feed" data-icon="feed"><span class="lbl">餵食</span></button>
-  <button data-act="worry" data-icon="heartsea"><span class="lbl">心情</span></button>
-  <button data-act="breath" data-icon="breath"><span class="lbl">呼吸</span></button>
-  <button data-act="codex" data-icon="codex"><span class="lbl">圖鑑</span></button>
-  <button data-act="shop" data-icon="shop"><span class="lbl">商店</span></button>
-  <button data-act="more" data-icon="more"><span class="lbl">更多</span></button>
+  <button class="dock-item" data-act="feed"><span class="lbl">餵食</span></button>
+  <button class="dock-item" data-act="breath"><span class="lbl">呼吸</span></button>
+  <button class="dock-item" data-act="codex"><span class="lbl">圖鑑</span></button>
+  <button class="dock-item" data-act="shop"><span class="lbl">商店</span></button>
+  <button class="dock-item" data-act="more"><span class="lbl">更多</span></button>
+  <button class="dock-mood" data-act="worry"><span class="lbl">心情</span></button>
 </nav>
-
-<div id="toasts" class="toasts" aria-live="polite"></div>
 
 <aside id="sheet" class="sheet" role="dialog" aria-label="">
   <header class="sheet-head">
@@ -61,30 +59,30 @@
   <div class="breath-stage">
     <div id="breathRing" class="breath-ring"></div>
     <div class="breath-text">
-      <div id="breathWord" class="breath-word">吸氣</div>
-      <div id="breathCount" class="breath-count">4</div>
+      <p id="breathWord" class="breath-word">吸氣</p>
+      <p id="breathCount" class="num breath-count">4</p>
     </div>
   </div>
-  <div id="breathCycle" class="breath-cycle"></div>
-  <button id="breathStop" class="btn ghost sm">結束</button>
+  <p id="breathCycle" class="breath-cycle"></p>
+  <button id="breathStop" class="btn-3">結束</button>
 </div>
 
 <div id="sleepUI" class="sleep-ui" hidden>
-  <div id="sleepClock" class="sleep-clock">00:00</div>
-  <div id="sleepLine" class="sleep-line"></div>
-  <div id="sleepSub" class="sleep-sub"></div>
-  <button id="sleepStop" class="btn ghost sm">醒來</button>
+  <p id="sleepClock" class="num sleep-clock">00:00</p>
+  <p id="sleepLine" class="sleep-line"></p>
+  <p id="sleepSub" class="sleep-sub"></p>
+  <button id="sleepStop" class="btn-3">醒來</button>
 </div>
 
 <div id="photoUI" class="photo-ui" hidden>
-  <button id="photoClose" class="btn ghost sm photo-back">返回</button>
+  <button id="photoClose" class="btn-3 photo-back">返回</button>
   <button id="photoShot" class="shutter" aria-label="拍照"></button>
 </div>
 <div id="flash" class="flash" aria-hidden="true"></div>
 
 <div id="arrangeBar" class="arrange-bar" hidden>
-  <span>左右拖曳裝飾，放到喜歡的位置</span>
-  <button id="arrangeDone" class="btn sm">完成</button>
+  <p class="arrange-text">左右拖曳裝飾：調整位置</p>
+  <button id="arrangeDone" class="btn">完成</button>
 </div>
 
 <section id="ritual" class="ritual" hidden role="dialog" aria-modal="true" aria-labelledby="ritualTitle">
@@ -97,16 +95,16 @@
   </div>
 </section>
 
-<div id="modal" class="modal" hidden><div id="modalCard" class="modal-card" role="dialog" aria-modal="true"></div></div>
+<svg id="leader" class="leader" aria-hidden="true"><polyline id="leaderLine" pathLength="1" points="0,0 0,0"/><circle id="leaderRing" cx="0" cy="0" r="16"/></svg>
+
+<div id="modal" class="modal" hidden><div id="modalCard" class="modal-card" role="dialog" aria-modal="true" tabindex="-1"></div></div>
 
 <section id="intro" class="intro-screen">
   <div class="intro-inner">
-    <p class="intro-kicker">Moon Jelly Aquarium</p>
-    <h1 class="intro-title">海月</h1>
-    <p class="intro-sub">一座只屬於你的夜光水母館</p>
-    <p class="intro-line">把煩惱交給水母，把自己交給海。</p>
-    <button id="introStart" class="btn big">推開水族館的門</button>
-    <p class="intro-note">有聲音的體驗・戴上耳機更好</p>
+    <h1 class="intro-title">海月水母館</h1>
+    <p class="intro-sub" id="introSub">現正展出</p>
+    <button id="introStart" class="btn">入館</button>
+    <p class="intro-note">有聲音。建議戴耳機。</p>
   </div>
 </section>
 <!--/BODY-->
