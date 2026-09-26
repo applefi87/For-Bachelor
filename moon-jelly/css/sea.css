@@ -152,7 +152,7 @@
 .dock-mood:active { background: var(--ink-3); border-color: var(--ink-3); transition: none; }
 
 /* 抽屜打開時，最上層是抽屜：心情退成次要樣式 */
-body.sheet-open .dock-mood {
+body.sheet-open .dock-mood, body:has(#sheet.open) .dock-mood {
   background: none;
   border-color: transparent;
   color: var(--ink-1);
@@ -240,6 +240,7 @@ body.sheet-open .dock-mood {
   gap: 8px;
   z-index: 30;
   pointer-events: none;
+  transition: opacity 400ms linear;
 }
 
 .toast {
@@ -292,7 +293,9 @@ body.sheet-open .dock-mood {
 body.intro .hud, body.intro .dock, body.intro .hint,
 body.ritual-open .hud, body.ritual-open .dock, body.ritual-open .hint,
 body.mode-breath .hud, body.mode-breath .dock, body.mode-breath .hint,
-body.mode-sleep .hud, body.mode-sleep .dock, body.mode-sleep .hint, body.mode-sleep .toasts,
+body.mode-breath .toasts, body.mode-sleep .toasts, body.mode-photo .toasts,
+body.card-open .hint, body.feed-open .hint,
+body.mode-sleep .hud, body.mode-sleep .dock, body.mode-sleep .hint,
 body.mode-photo .hud, body.mode-photo .dock, body.mode-photo .hint,
 body.mode-arrange .hud, body.mode-arrange .dock, body.mode-arrange .hint {
   opacity: 0;
@@ -332,12 +335,12 @@ body.intro .hud > *, body.ritual-open .hud > *, body.mode-breath .hud > *, body.
 
 .breath-ui .btn-3 { pointer-events: auto; }
 
-/* 晚安：時鐘是等寬的淡字；不出現紙、不出現通知 */
+/* 晚安：時鐘是等寬的淡字，停在 HUD 原本的位置；不出現紙、不出現通知 */
 .sleep-ui {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--safe-b) + 32px);
+  top: calc(var(--safe-t) + 24px);
   z-index: 15;
   display: grid;
   justify-items: start;
@@ -347,7 +350,7 @@ body.intro .hud > *, body.ritual-open .hud > *, body.mode-breath .hud > *, body.
 }
 
 @media (min-width: 700px) {
-  .sleep-ui { padding: 0 64px; bottom: calc(var(--safe-b) + 48px); }
+  .sleep-ui { padding: 0 64px; top: calc(var(--safe-t) + 48px); }
 }
 
 .sleep-clock { margin: 0; font-size: var(--t1); line-height: var(--lh1); color: var(--sleep-ink); }
@@ -591,7 +594,7 @@ body.intro .hud > *, body.ritual-open .hud > *, body.mode-breath .hud > *, body.
 
 .modal-card .res-care a { color: var(--ink-1); text-decoration: underline 1px; text-decoration-color: var(--rule-strong); text-underline-offset: 0.3em; }
 
-.lb-acts { justify-content: flex-end; gap: 0 24px; }
+.modal-card .lb-acts { justify-content: flex-end; gap: 0 24px; margin-top: 0; }
 
 .lb-acts .btn-2 { min-height: 44px; }
 
@@ -611,6 +614,9 @@ body.intro .hud > *, body.ritual-open .hud > *, body.mode-breath .hud > *, body.
 .m-portrait { display: block; width: 120px; height: 120px; }
 
 .modal-card .btn-row { margin-top: 8px; }
+
+/* 沒有主要按鈕的列：收尾的那一個（「好」）推到行尾 */
+.btn-row > .push { margin-left: auto; }
 
 /* 導言牌的內容 */
 .guide-how { margin: 0; }

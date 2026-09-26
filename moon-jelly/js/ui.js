@@ -67,6 +67,25 @@
   const starsHTML = (n) => '<span class="num stars" aria-label="稀有度 ' + n + '/5">' + n + '/5</span>';
   const colorCss = (g, l = 70) => 'hsl(' + Math.round(g.hue) + ',' + Math.round(Math.max(g.sat, 0.15) * 100) + '%,' + l + '%)';
 
+  /** 學名：F.SPECIES[id].latin／.latinUp（世界區塊）；還沒有時用和紙上一樣的表。
+   *  只有真的屬名、種名斜體，科以上（-idae、-oidea）正體；珊瑚、瓶中信、幼生不加。 */
+  const LATIN = { jelly: 'Aurelia aurita', crab: 'Paguroidea', lantern: 'Myctophidae', clown: 'Amphiprion', turtle: 'Chelonioidea', seahorse: 'Hippocampus', tears: 'Noctiluca scintillans', oyster: 'Pinctada', octopus: 'Octopus' };
+  const NO_LATIN = ['coral', 'bottle', 'larva'];
+  const latinOf = (id) => {
+    if (NO_LATIN.includes(id)) return {};
+    const sp = MJ.Feelings.SPECIES[id] || {};
+    const upText = typeof sp.latinUp === 'string' ? sp.latinUp : '';
+    const text = sp.latin || upText || LATIN[id];
+    if (!text) return {};
+    let up;
+    if (sp.latin && sp.latinUp != null) up = sp.latinUp === true || sp.latinUp === sp.latin;
+    else if (!sp.latin && upText) up = true;
+    else up = /(idae|oidea|inae|formes)$/.test(text);
+    return { latin: text, latinUp: !!up };
+  };
+  /** 名字是你自己取的：手寫體 */
+  const isNamed = (j) => !!(j && (j.named || (Game && Game.state.flags && Game.state.flags.named && Game.state.flags.named[j.id])));
+
   const UI = { sheetKind: null, icon, dimWanted: 0 };
   let Game;
   const $ = (id) => document.getElementById(id);
@@ -294,7 +313,7 @@
       UI.refreshBound();
     }
     UI.deferTick = (UI.deferTick || 0) - dt;
-    if (UI.deferred.length && UI.deferTick <= 0 && !UI.isQuiet() && !UI.modalOpenNow && Game.mode !== 'sleep') {
+    if (UI.deferred.length && UI.deferTick <= 0 && !UI.isQuiet() && !UI.modalOpenNow && calmMode()) {
       UI.deferTick = 3.2;
       UI.toast.apply(null, UI.deferred.shift());
     }
@@ -322,13 +341,15 @@
       UI.deferred.push([text, kind, sub]);
       return;
     }
-    // 晚安模式不出現通知；手機上說明牌停在通知欄的位置，等它收起再說
-    if ((Game && Game.mode === 'sleep') || (narrow() && UI.modalOpenNow && SOFT[UI.modalKind])) {
+    // 晚安、呼吸、拍照時不出現通知；手機上說明牌停在通知欄的位置，等它收起再說
+    if (!calmMode() || (narrow() && UI.modalOpenNow && SOFT[UI.modalKind])) {
       UI.deferred.push([text, kind, sub]);
       return;
     }
     showToast(text, kind, sub);
   };
+
+  const calmMode = () => !Game || Game.mode === 'normal' || Game.mode === 'arrange';
 
   const showToast = (text, kind, sub) => {
     const box = UI.el.toasts;
@@ -414,7 +435,8 @@
     UI.modalOnClose = opts.onClose || null;
     const m = UI.el.modal;
     const card = UI.el.modalCard;
-    m.className = 'modal is-' + kind + (opts.place ? ' at-' + opts.place : '');
+    // 短版說明牌和說明牌是同一種版面
+    m.className = 'modal is-' + (kind === 'note' ? 'label is-note' : kind) + (opts.place ? ' at-' + opts.place : '');
     card.className = 'modal-card ' + (opts.cls || '');
     card.removeAttribute('style');
     card.removeAttribute('aria-labelledby');
@@ -425,6 +447,7 @@
     UI.dimWanted = kind === 'paper' ? 0.35 : 0;
     render(card, UI.closeModal);
     m.hidden = false;
+    document.body.classList.add('card-open');
     if (opts.afterRender) opts.afterRender(card);
     requestAnimationFrame(() => m.classList.add('open'));
     if (SOFT[kind]) {
@@ -455,6 +478,7 @@
     UI.modalClosing = false;
     UI.modalKind = null;
     UI.dimWanted = 0;
+    document.body.classList.remove('card-open');
     stopLabel();
   };
 
@@ -806,6 +830,7 @@
     if (pop.classList.contains('open')) return UI.closePopovers();
     UI.updateFood();
     pop.classList.add('open');
+    document.body.classList.add('feed-open');
     pop.setAttribute('aria-hidden', 'false');
     const b = document.querySelector('#dock [data-act="feed"]');
     if (b) {
@@ -819,6 +844,7 @@
     if (!pop) return;
     pop.classList.remove('open');
     pop.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('feed-open');
   };
 
   UI.updateFood = () => {
@@ -914,7 +940,6 @@
     Game.tut('card');
     if (!j) return;
     const g = j.genes;
-    const sp = F.SPECIES.jelly || {};
     const rows = [['特徵', '<span class="chips">' + traitChips(g) + '</span>']];
     if (j.visitor) {
       rows.push(['狀態', '野生訪客　約 ' + dur(Math.max(0, (j.leaveAt || 0) - Game.t)) + '後離開']);
@@ -925,23 +950,22 @@
       rows.push(['來到這裡', '<span class="num">' + dateStr(j.born) + '</span>']);
     }
     const detail = { label: '詳細 →', onClick: () => UI.openSheet('jelly', j) };
-    UI.label({
+    UI.label(Object.assign({
       target: Game.targetOf(j),
       no: j.no,
       status: j.visitor ? '訪客' : j.stage,
       words: j.name,
+      hand: isNamed(j),
       line: '海月水母',
-      latin: sp.latin,
-      latinUp: sp.latinUp === true,
       rows,
       actions: j.visitor ? [detail] : [{ label: '摸摸', keep: true, onClick: () => Game.petButton(j.id) }, detail],
       update: (card) => {
         card.querySelectorAll('[data-m]').forEach((el) => (el.style.width = Math.round(U.clamp(j[el.dataset.m], 0, 1) * 100) + '%'));
       },
-    });
+    }, latinOf('jelly')));
   };
 
-  /** 每 0.4 秒更新會變動的數字：抽屜裡的名片、說明牌的長條、底座的心情方塊 */
+  /** 每 0.4 秒更新會變動的數字：底座的心情方塊、說明牌的長條、抽屜裡的名片（ui-sheets.js 會再包一層） */
   UI.refreshBound = () => {
     // 今天還沒記過：心情方塊寫「記下心情」；記過之後是「心情」。不用小點、不脈動
     const fb = UI.el && UI.el.feelBtn;
@@ -971,32 +995,12 @@
       set('growth', j.growth);
       if (b.els.affection) b.els.affection.textContent = Math.floor(j.affection);
       if (b.els.stage) b.els.stage.textContent = j.stage;
-      if (b.els.breedNote) {
-        const br = Game.breedable(j);
-        const txt = br.ok ? '' : '還不能配對：' + br.reason;
-        if (b.els.breedNote.textContent !== txt) b.els.breedNote.textContent = txt;
-        if (b.els.mateBtn) b.els.mateBtn.disabled = !br.ok;
-      }
       if (b.wasAdult !== j.adult || b.visitor !== j.visitor) {
         UI.rerender();
         return;
       }
     }
-    if (UI.sheetKind === 'shop' || UI.sheetKind === 'mate') {
-      const light = Game.state.light;
-      UI.el.sheetBody.querySelectorAll('[data-price]').forEach((btn) => {
-        if (btn.dataset.lock) return;
-        btn.disabled = light < +btn.dataset.price;
-      });
-      const cap = $('capLine');
-      if (cap) cap.textContent = Game.residentCount() + '/' + Game.capacity();
-    }
-    if (UI.sheetKind === 'roster') {
-      UI.el.sheetBody.querySelectorAll('[data-remaining]').forEach((el) => {
-        const p = Game.polyps.find((q) => q.id === el.dataset.remaining);
-        if (p) el.textContent = '約 ' + dur(p.remaining) + '後孵化';
-      });
-    }
+    // 商店、名冊裡會變的數字由 ui-sheets.js 包在 UI.refreshBound 外面處理
   };
 
   /* ---------- 肖像：直角的標本窗（底色 --plate） ---------- */
@@ -1062,7 +1066,7 @@
             (o.img ? '<img class="portrait m-portrait" src="' + o.img + '" alt="">' : '') +
             '<h2 class="m-title" id="mTitle">' + esc(o.title) + '</h2>' +
             (o.text ? '<p class="m-text">' + esc(o.text) + '</p>' : '') +
-            '<div class="btn-row"><button class="btn-3" data-r="0">' + esc(o.cancel || '取消') + '</button>' +
+            '<div class="btn-row"><button class="btn-3" data-r="0" autofocus>' + esc(o.cancel || '取消') + '</button>' +
             '<button class="' + (o.danger ? 'btn-2 danger' : 'btn') + '" data-r="1">' + esc(o.ok || '確定') + '</button></div>';
           card.setAttribute('aria-labelledby', 'mTitle');
           card.querySelectorAll('[data-r]').forEach((b) =>
@@ -1261,7 +1265,7 @@
   /** 陪法：介面上不上色，只有字 */
   const turnChip = (t, extra = '') => (F.TURNS[t] ? '<span class="chip turn-chip">' + F.TURNS[t].name + extra + '</span>' : '');
 
-  UI.h = { U, Gn, C, A, F, esc, icon, $, noteName, dateStr, starsHTML, colorCss, portraitImg, traitChips, timeStr, famChip, turnChip, SPECIES_ICON, SPECIES_HUE, KIND_SPECIES, hhmm, dur };
+  UI.h = { U, Gn, C, A, F, esc, icon, $, noteName, dateStr, starsHTML, colorCss, portraitImg, traitChips, timeStr, famChip, turnChip, SPECIES_ICON, SPECIES_HUE, KIND_SPECIES, hhmm, dur, latinOf, isNamed };
   const initHooks = [];
   UI.onInit = (fn) => initHooks.push(fn);
 

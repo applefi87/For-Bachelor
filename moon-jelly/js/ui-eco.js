@@ -4,25 +4,19 @@
 
   const UI = MJ.UI;
   const RENDER = UI.RENDER;
-  const { U, Gn, F, esc, $, dateStr, traitChips, turnChip, KIND_SPECIES, hhmm, dur } = UI.h;
+  const { U, Gn, F, esc, $, dateStr, traitChips, turnChip, KIND_SPECIES, hhmm, dur, latinOf, isNamed } = UI.h;
   let Game = null;
   UI.onInit((g) => (Game = g));
 
   /* ---------- 共用 ---------- */
 
-  /** 學名：只給真的屬名／種名（斜體），科以上正體；珊瑚、瓶中信、幼生不加 */
-  const NO_LATIN = ['coral', 'bottle', 'larva'];
-  const latinOf = (id) => {
-    const sp = F.SPECIES[id];
-    if (!sp || NO_LATIN.includes(id)) return {};
-    if (sp.latin) return { latin: sp.latin, latinUp: sp.latinUp === true || (typeof sp.latinUp === 'string' && sp.latinUp === sp.latin) };
-    if (typeof sp.latinUp === 'string' && sp.latinUp) return { latin: sp.latinUp, latinUp: true };
-    return {};
-  };
-
-  /** 這筆心情是第幾筆（世界區塊在建立時存成 e.no；剛交給海的那一筆可以用累計次數） */
+  /** 這筆心情是第幾筆：和紙上的紀錄卡用同一個號碼（UI.entryNo 在 ui-paper.js）；沒有時退回 e.no 或累計次數 */
   const entryNo = (e, fresh) => {
     if (!e) return null;
+    if (UI.entryNo) {
+      const n = UI.entryNo(e);
+      if (n != null && n !== '') return n;
+    }
     if (e.no != null) return e.no;
     if (fresh && !e.resumed && Game.state.stats && Game.state.stats.rituals) return Game.state.stats.rituals;
     return null;
@@ -412,18 +406,18 @@
       (card, close) => {
         const off = o.offline;
         let html = '';
+        // 標題就是事實：離開多久；沒有的話，用第一件要說的事當標題
+        const title = off ? '你不在的 ' + dur(off.sec) : o.steps.length ? '之前的小事' : o.letter ? '今天的信，未拆' : '本週紀錄';
+        html += '<h2 class="m-title" id="mTitle">' + title + '</h2>';
         if (off) {
-          html += '<h2 class="m-title" id="mTitle">你不在的 ' + dur(off.sec) + '</h2>';
           const rows = [];
           if (off.gain > 0) rows.push(['光', '<span class="num">+' + U.fmt(off.gain) + '</span>']);
           if (off.born.length) rows.push(['出生', off.born.map((j) => '「' + esc(j.name) + '」').join('')]);
           if (off.grown) rows.push(['成年', '<span class="num">' + off.grown + '</span> 隻']);
           if (rows.length) html += '<dl class="kv">' + rows.map((r) => '<div><dt>' + r[0] + '</dt><dd>' + r[1] + '</dd></div>').join('') + '</dl>';
-        } else {
-          html += '<h2 class="m-title" id="mTitle"><span class="num">' + dateStr(Date.now()) + '</span></h2>';
         }
         if (o.steps.length) {
-          html += '<div class="wb-steps"><h3 class="sub-h">之前的小事：</h3>';
+          html += '<div class="wb-steps">' + (off ? '<h3 class="sub-h">之前的小事：</h3>' : '');
           for (const e of o.steps) {
             html +=
               '<div class="wb-step" data-id="' + e.id + '"><p class="hand">' + esc(e.crisis ? '一件小事' : e.step.what) + '</p><span class="wb-btns">' +
@@ -458,7 +452,7 @@
           })
         );
       },
-      { cls: 'guide wide', onClose: () => after && setTimeout(after, 60) }
+      { cls: 'guide', onClose: () => after && setTimeout(after, 60) }
     );
   };
 
@@ -474,16 +468,14 @@
     const { rows, found: f } = jellyRows(j, found);
     if (j.parents) rows.push(['父母', esc(j.parents.join(' × '))]);
     if (f) rows.push(['圖鑑', f]);
-    const sp = F.SPECIES.jelly || {};
-    UI.label({
+    UI.label(Object.assign({
       target: Game.targetOf(j),
       wait: true,
       no: j.no,
       status: '新生',
       words: j.name,
+      hand: isNamed(j),
       line: '海月水母',
-      latin: sp.latin,
-      latinUp: sp.latinUp === true,
       rows,
       note: '碟狀幼體',
       actions: [
@@ -493,31 +485,34 @@
           onClick: () =>
             setTimeout(async () => {
               const name = await UI.prompt({ title: '替牠取名字', value: j.name, max: 12 });
-              if (name) Game.rename(j.id, name);
+              if (!name) return;
+              Game.rename(j.id, name);
+              // 你取的名字：之後在名片、說明牌上用手寫體（和 ui-sheets.js 的改名一樣記下來）
+              const flags = Game.state.flags;
+              flags.named = flags.named || {};
+              flags.named[j.id] = 1;
+              j.named = true;
             }, 200),
         },
         { label: '收起', id: 'ok' },
       ],
-    });
+    }, latinOf('jelly')));
   };
 
   UI.catchModal = (j, found) => {
     const { d, rows, found: f } = jellyRows(j, found);
     rows.push(['稀有度', esc(d.rarity) + '　' + UI.h.starsHTML(d.stars)]);
     if (f) rows.push(['圖鑑', f]);
-    const sp = F.SPECIES.jelly || {};
-    UI.label({
+    UI.label(Object.assign({
       target: Game.targetOf(j),
       no: j.no,
       status: '新居民',
       words: j.name,
       line: '海月水母',
-      latin: sp.latin,
-      latinUp: sp.latinUp === true,
       rows,
       note: j.adult ? '已成年' : '還沒成年',
       actions: [{ label: '收起', id: 'ok' }],
-    });
+    }, latinOf('jelly')));
   };
 
 })((window.MJ = window.MJ || {}));
