@@ -7,19 +7,19 @@
 
   /* ---------- 顏色 ---------- */
   G.COLORS = [
-    { id: 'crimson', name: '緋紅', hue: 0, from: 352, to: 10, desc: '像深海裡的一小盞燈籠。' },
-    { id: 'coral', name: '珊瑚', hue: 18, from: 10, to: 28, desc: '暖暖的，像傍晚的海面。' },
-    { id: 'amber', name: '琥珀', hue: 36, from: 28, to: 46, desc: '被封在時間裡的光。' },
-    { id: 'gold', name: '金盞', hue: 55, from: 46, to: 66, desc: '金色的光，在水裡特別溫柔。' },
-    { id: 'lime', name: '若草', hue: 88, from: 66, to: 110, desc: '春天剛冒出來的顏色。' },
-    { id: 'jade', name: '翡翠', hue: 135, from: 110, to: 158, desc: '像被月光照到的海草。' },
-    { id: 'lake', name: '湖水', hue: 172, from: 158, to: 186, desc: '裝著一整座湖的安靜。' },
-    { id: 'sky', name: '天青', hue: 198, from: 186, to: 212, desc: '雨過天晴的那一塊天空。' },
-    { id: 'lapis', name: '琉璃', hue: 226, from: 212, to: 242, desc: '最接近夜晚的藍。' },
-    { id: 'wisteria', name: '紫藤', hue: 258, from: 242, to: 274, desc: '帶著一點點想念的紫。' },
-    { id: 'bellflower', name: '桔梗', hue: 290, from: 274, to: 308, desc: '不說話也很好看的顏色。' },
-    { id: 'sakura', name: '櫻粉', hue: 328, from: 308, to: 352, desc: '軟軟的，像剛睡醒的臉頰。' },
-    { id: 'moonwhite', name: '月白', hue: 200, pale: true, desc: '幾乎透明，像月光本身。' },
+    { id: 'crimson', name: '緋紅', hue: 0, from: 352, to: 10, desc: '偏深的紅，像燈籠。' },
+    { id: 'coral', name: '珊瑚', hue: 18, from: 10, to: 28, desc: '帶橘的粉紅，像傍晚的海面。' },
+    { id: 'amber', name: '琥珀', hue: 36, from: 28, to: 46, desc: '橙黃，像樹脂化石。' },
+    { id: 'gold', name: '金盞', hue: 55, from: 46, to: 66, desc: '金黃，像金盞花。' },
+    { id: 'lime', name: '若草', hue: 88, from: 66, to: 110, desc: '淺黃綠，像新芽。' },
+    { id: 'jade', name: '翡翠', hue: 135, from: 110, to: 158, desc: '深綠，像海草。' },
+    { id: 'lake', name: '湖水', hue: 172, from: 158, to: 186, desc: '藍綠，像湖水。' },
+    { id: 'sky', name: '天青', hue: 198, from: 186, to: 212, desc: '淺藍，像雨後的天空。' },
+    { id: 'lapis', name: '琉璃', hue: 226, from: 212, to: 242, desc: '深藍，像琉璃。' },
+    { id: 'wisteria', name: '紫藤', hue: 258, from: 242, to: 274, desc: '偏藍的紫，像紫藤花。' },
+    { id: 'bellflower', name: '桔梗', hue: 290, from: 274, to: 308, desc: '偏紅的紫，像桔梗花。' },
+    { id: 'sakura', name: '櫻粉', hue: 328, from: 308, to: 352, desc: '淡粉紅，像櫻花。' },
+    { id: 'moonwhite', name: '月白', hue: 200, pale: true, desc: '幾乎透明，像月光。' },
   ];
   const COLOR_BY_ID = {};
   G.COLORS.forEach((c) => (COLOR_BY_ID[c.id] = c));
@@ -40,50 +40,50 @@
   // k1：傘側控制點寬度，k2：傘側控制點高度，k3：頂部圓潤度，h：高寬比，scallop：傘緣花邊數
   G.SHAPES = {
     dome: { name: '圓頂', h: 0.62, k1: 1.0, k2: 0.78, k3: 0.56, scallop: 0, weight: 30, pts: 0,
-      desc: '最經典的樣子，像一把小傘。海月水母就是這樣。' },
+      desc: '最常見的傘形，像一把小傘。海月水母就是這樣。' },
     bell: { name: '吊鐘', h: 0.86, k1: 0.72, k2: 0.95, k3: 0.4, scallop: 0, weight: 22, pts: 0.5,
-      desc: '傘緣微微張開，像一口會發光的鐘。' },
+      desc: '傘緣微微張開，像一口鐘。' },
     disc: { name: '圓盤', h: 0.38, k1: 1.08, k2: 0.9, k3: 0.72, scallop: 0, weight: 20, pts: 0.5,
-      desc: '扁扁的，像一片會游泳的月亮。' },
+      desc: '扁平，像一片圓盤。' },
     lantern: { name: '燈籠', h: 0.98, k1: 1.12, k2: 1.0, k3: 0.78, scallop: 0, weight: 12, pts: 1,
-      desc: '圓圓胖胖，像廟口掛著的燈籠。' },
+      desc: '圓胖，像廟口的燈籠。' },
     tall: { name: '高帽', h: 1.28, k1: 0.95, k2: 1.12, k3: 0.46, scallop: 0, weight: 10, pts: 1.5,
-      desc: '高高的傘，像戴了一頂帽子。箱水母也是這種身形。' },
+      desc: '傘很高。箱水母也是這種身形。' },
     crown: { name: '花冠', h: 0.64, k1: 1.02, k2: 0.8, k3: 0.6, scallop: 12, weight: 6, pts: 2,
-      desc: '傘緣留著一圈花邊，像碟狀幼體長大後捨不得脫掉的裙擺。' },
+      desc: '傘緣留著一圈花邊，像碟狀幼體的裙擺。' },
   };
   G.SHAPE_IDS = Object.keys(G.SHAPES);
 
   /* ---------- 花紋 ---------- */
   G.PATTERNS = {
-    plain: { name: '素面', weight: 26, pts: 0, desc: '乾乾淨淨，什麼都不畫也很好看。' },
-    clover: { name: '四葉草', weight: 22, pts: 0, desc: '海月水母的招牌。這四個圓圈，其實是牠的生殖腺。' },
-    dots: { name: '星點', weight: 18, pts: 0.5, desc: '一閃一閃，像撒了一把亮粉。' },
-    rings: { name: '年輪', weight: 14, pts: 0.5, desc: '一圈一圈，像水波，也像樹的年輪。' },
-    stripes: { name: '放射紋', weight: 12, pts: 1, desc: '從傘頂畫下來的線條，像太平洋海刺水母。' },
-    spiral: { name: '漩渦', weight: 6, pts: 1.5, desc: '看久了，會有一點想睡。' },
+    plain: { name: '素面', weight: 26, pts: 0, desc: '沒有花紋。' },
+    clover: { name: '四葉草', weight: 22, pts: 0, desc: '海月水母的招牌。這四個圓圈是牠的生殖腺。' },
+    dots: { name: '星點', weight: 18, pts: 0.5, desc: '散布的小亮點，一閃一閃。' },
+    rings: { name: '年輪', weight: 14, pts: 0.5, desc: '一圈一圈，像樹的年輪。' },
+    stripes: { name: '放射紋', weight: 12, pts: 1, desc: '從傘頂放射下來的線，像太平洋海刺水母。' },
+    spiral: { name: '漩渦', weight: 6, pts: 1.5, desc: '傘上一道漩渦，會轉動。' },
     heart: { name: '愛心', weight: 0, pts: 3, recipe: true,
-      desc: '被深深愛著的水母，孩子身上會長出愛心。', hint: '被深深愛著的水母……' },
+      desc: '父母被摸過很多次時，孩子可能長出愛心。', hint: '被深深愛著的水母' },
     starry: { name: '星空', weight: 0, pts: 3, recipe: true,
-      desc: '傘裡裝著一小片夜空。', hint: '點點與點點相遇。' },
+      desc: '傘裡有一小片星空。', hint: '點點與點點相遇。' },
   };
   G.PATTERN_IDS = Object.keys(G.PATTERNS);
 
   /* ---------- 特殊體質 ---------- */
   G.SPECIALS = {
-    rainbow: { name: '彩虹', pts: 4, desc: '顏色會一直流動。向身上有彩虹的櫛水母致敬。',
+    rainbow: { name: '彩虹', pts: 4, desc: '顏色一直流動，像櫛水母身上的彩虹。',
       hint: '顏色相隔很遠的兩隻，也許會生下所有的顏色。' },
-    ghost: { name: '幽靈', pts: 3, desc: '有時候淡到快看不見。別擔心，牠只是比較害羞。',
+    ghost: { name: '幽靈', pts: 3, desc: '有時淡到快看不見。',
       hint: '兩道很淡、很淡的影子相遇。' },
-    golden: { name: '黃金', pts: 4, desc: '會一直掉金粉。據說看到的人，那天會有好運。',
+    golden: { name: '黃金', pts: 4, desc: '會一直落下金色的粉。',
       hint: '兩道金色的光。' },
-    aurora: { name: '極光', pts: 3.5, desc: '傘上掛著一條會飄動的極光。',
+    aurora: { name: '極光', pts: 3.5, desc: '傘上有一道飄動的極光。',
       hint: '在極光下出生的孩子。' },
-    twin: { name: '雙生', pts: 3, desc: '傘裡面，還藏著一把小小的傘。',
-      hint: '長得一模一樣的兩隻……' },
-    firefly: { name: '螢火', pts: 3, desc: '吃過很多煩惱，所以身邊總飄著小小的光。',
+    twin: { name: '雙生', pts: 3, desc: '傘裡還有一把小傘。',
+      hint: '長得一模一樣的兩隻' },
+    firefly: { name: '螢火', pts: 3, desc: '身邊飄著小光點。',
       hint: '吃過很多煩惱的水母，會把光傳給孩子。' },
-    moonlight: { name: '月光', pts: 3.5, desc: '每一次脈動，都會泛開一圈月光。',
+    moonlight: { name: '月光', pts: 3.5, desc: '每次脈動，泛開一圈月光。',
       hint: '在一次很深的呼吸之後。' },
   };
   G.SPECIAL_IDS = Object.keys(G.SPECIALS);
