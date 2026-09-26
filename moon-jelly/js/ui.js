@@ -299,6 +299,9 @@
     const pop = UI.el.feedPop;
     if (pop.classList.contains('open')) return UI.closePopovers();
     UI.updateFood();
+    // 對齊「餵食」按鈕的左邊（桌面的選單在中間，手機是整排）
+    const r = UI.el.dock.getBoundingClientRect();
+    pop.style.left = Math.round(Math.max(16, Math.min(r.left, window.innerWidth - pop.offsetWidth - 16))) + 'px';
     pop.classList.add('open');
     pop.setAttribute('aria-hidden', 'false');
   };
