@@ -5,20 +5,20 @@
   const U = MJ.U;
 
   const DEFS = {
-    kelp: { name: '海帶林', price: 40, max: 3, w: 70, h: 210, desc: '高高的海帶，會跟著水流慢慢搖。' },
-    coral: { name: '粉珊瑚', price: 60, max: 3, w: 90, h: 95, desc: '一小叢粉紅珊瑚，枝頭亮著細細的光。' },
-    airstone: { name: '氣泡石', price: 80, max: 2, w: 36, h: 22, desc: '一直咕嚕咕嚕地冒泡泡。' },
-    conch: { name: '大海螺', price: 90, max: 1, w: 64, h: 44, tap: true, desc: '點一下，可以聽見海的聲音。' },
-    anemone: { name: '螢光海葵', price: 120, max: 2, w: 70, h: 70, desc: '觸手的尖端，發著淡紫色的光。' },
-    bottle: { name: '漂流瓶', price: 150, max: 1, w: 60, h: 40, tap: true, desc: '瓶子裡塞著一張紙條，點開來看看。' },
-    lantern: { name: '石燈籠', price: 200, max: 1, w: 46, h: 110, tap: true, desc: '海底的一盞燈。點一下可以開關。' },
-    moonstone: { name: '月光石', price: 260, max: 1, w: 50, h: 56, hab: true, desc: '在它旁邊游泳的水母心情會比較好。晚上，燈籠魚會游過來繞著它。' },
-    chest: { name: '寶箱', price: 320, max: 1, w: 64, h: 50, tap: true, desc: '偶爾冒出金色泡泡。戳破金泡泡會得到光。' },
-    ship: { name: '小沉船', price: 520, max: 1, w: 170, h: 120, desc: '不知道從哪裡漂來的小船，窗戶還亮著。' },
+    kelp: { name: '海帶林', price: 40, max: 3, w: 70, h: 210, desc: '高的海帶，隨水流擺動。' },
+    coral: { name: '粉珊瑚', price: 60, max: 3, w: 90, h: 95, desc: '一小叢粉紅珊瑚，枝頭有微光。' },
+    airstone: { name: '氣泡石', price: 80, max: 2, w: 36, h: 22, desc: '持續冒出小氣泡。' },
+    conch: { name: '大海螺', price: 90, max: 1, w: 64, h: 44, tap: true, desc: '點它：聽浪聲。' },
+    anemone: { name: '螢光海葵', price: 120, max: 2, w: 70, h: 70, desc: '觸手尖端發淡紫色的光。' },
+    bottle: { name: '漂流瓶', price: 150, max: 1, w: 60, h: 40, tap: true, desc: '瓶裡有一張紙條。點它：讀紙條。' },
+    lantern: { name: '石燈籠', price: 200, max: 1, w: 46, h: 110, tap: true, desc: '海底的一盞燈。點它：開／關。' },
+    moonstone: { name: '月光石', price: 260, max: 1, w: 50, h: 56, hab: true, desc: '水母在它附近時，開心值會上升。晚上，燈籠魚會繞著它游。' },
+    chest: { name: '寶箱', price: 320, max: 1, w: 64, h: 50, tap: true, desc: '偶爾冒出金泡泡，戳破 +2 光。點它：每 4 小時 +20～40 光。' },
+    ship: { name: '小沉船', price: 520, max: 1, w: 170, h: 120, desc: '一艘小沉船，圓窗亮著燈。' },
     // 棲地：不會變出生物，只會改變心情長出來的生物待在哪裡
-    seagrass: { name: '海草床', price: 180, max: 1, w: 150, h: 110, hab: true, desc: '一片低低的海草。海馬會聚過來，捲在同一片海草裡。' },
+    seagrass: { name: '海草床', price: 180, max: 1, w: 150, h: 110, hab: true, desc: '一片低矮的海草。海馬會聚到這裡。' },
     cave: { name: '礁石洞', price: 150, max: 1, w: 110, h: 64, hab: true, desc: '有陰影的小洞。寄居蟹受驚時會躲進去；白天，燈籠魚會待在陰影裡。' },
-    pearlbox: { name: '珍珠盒', price: 350, max: 1, w: 76, h: 40, hab: true, needsPearl: true, desc: '打開的貝殼，擺著你的珍珠。要先有一顆珍珠。' },
+    pearlbox: { name: '珍珠盒', price: 350, max: 1, w: 76, h: 40, hab: true, needsPearl: true, desc: '打開的貝殼，擺著你的珍珠。需要至少 1 顆珍珠。' },
   };
 
   const D = { DEFS };
@@ -35,6 +35,16 @@
     const x = d.x * world.W;
     const base = world.sandY(x) + 6;
     return { x: x - w / 2, y: base - h, w, h, cx: x, base };
+  };
+
+  /**
+   * 說明牌的目標圈 [x, y, r]：裝飾的中心，半徑是外框的一半 + 8（上限 64，由 Game.targetOf 限制）。
+   * list 是 state.decor；已經不在（賣掉、清掉）時回傳 null。
+   */
+  D.anchor = (d, world, list) => {
+    if (list && !list.includes(d)) return null;
+    const b = D.bbox(d, world);
+    return [b.cx, b.base - b.h / 2, Math.max(b.w, b.h) / 2 + 8];
   };
 
   D.hit = (d, px, py, world) => {
@@ -81,10 +91,9 @@
     ctx.restore();
     if (highlight) {
       ctx.save();
-      ctx.setLineDash([4, 5]);
-      ctx.strokeStyle = 'rgba(230,245,250,0.55)';
-      ctx.lineWidth = 1.2;
-      ctx.strokeRect(b.x - 6, b.y - 6, b.w + 12, b.h + 12);
+      ctx.strokeStyle = 'rgba(234,232,226,0.42)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(Math.round(b.x - 6) + 0.5, Math.round(b.y - 6) + 0.5, Math.round(b.w + 12), Math.round(b.h + 12));
       ctx.restore();
     }
   };
@@ -174,7 +183,7 @@
     const dimK = 1 - world.dim * 0.5;
     ctx.lineCap = 'round';
     for (const [x1, y1, x2, y2, w, depth] of d._segs) {
-      ctx.strokeStyle = U.hsla(d._hue, 0.55, (0.38 + depth * 0.06) * dimK, 1);
+      ctx.strokeStyle = U.hsla(d._hue, 0.4, (0.38 + depth * 0.06) * dimK, 1);
       ctx.lineWidth = w * u;
       ctx.beginPath();
       ctx.moveTo(x1 * u, y1 * u);
@@ -184,8 +193,8 @@
     ctx.globalCompositeOperation = 'lighter';
     for (const [x, y, ph] of d._tips) {
       const a = 0.5 + 0.5 * Math.sin(t * 1.4 + ph);
-      U.drawGlow(ctx, x * u, y * u, 14 * u, d._hue + 10, 0.9, 0.7, a * 0.8);
-      ctx.fillStyle = U.hsla(d._hue + 15, 0.8, 0.85, 0.5 + a * 0.4);
+      MJ.glow(ctx, x * u, y * u, 14 * u, d._hue + 10, 0.9, 0.7, a * 0.8);
+      ctx.fillStyle = U.hsla(d._hue + 15, 0.5, 0.85, 0.5 + a * 0.4);
       ctx.beginPath();
       ctx.arc(x * u, y * u, 1.6 * u, 0, U.TAU);
       ctx.fill();
@@ -244,7 +253,7 @@
     }
     // 開口
     const ig = ctx.createRadialGradient(18, -12, 1, 18, -12, 14);
-    ig.addColorStop(0, '#ff9fa8');
+    ig.addColorStop(0, '#e6a7ab');
     ig.addColorStop(1, '#f1c4b8');
     ctx.fillStyle = ig;
     ctx.beginPath();
@@ -310,8 +319,8 @@
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < tips.length; i += 3) {
       const a = 0.55 + 0.45 * Math.sin(t * 1.8 + tips[i + 2]);
-      U.drawGlow(ctx, tips[i], tips[i + 1], 16 * u, hue + 15, 0.9, 0.7, a);
-      ctx.fillStyle = U.hsla(hue + 20, 0.7, 0.85, 0.8);
+      MJ.glow(ctx, tips[i], tips[i + 1], 16 * u, hue + 15, 0.5, 0.7, a * 0.85);
+      ctx.fillStyle = U.hsla(hue + 20, 0.45, 0.85, 0.8);
       ctx.beginPath();
       ctx.arc(tips[i], tips[i + 1], 2 * u, 0, U.TAU);
       ctx.fill();
@@ -410,8 +419,8 @@
     ctx.fill();
     if (on) {
       ctx.globalCompositeOperation = 'lighter';
-      U.drawGlow(ctx, 0, -67 * s, 150 * s * flick, 36, 0.95, 0.6, 0.75);
-      U.drawGlow(ctx, 0, -67 * s, 40 * s, 40, 1, 0.7, 0.9);
+      MJ.glow(ctx, 0, -67 * s, 150 * s * flick, 36, 0.95, 0.6, 0.75);
+      MJ.glow(ctx, 0, -67 * s, 40 * s, 40, 1, 0.7, 0.9);
       ctx.globalCompositeOperation = 'source-over';
     }
   };
@@ -426,7 +435,7 @@
     ctx.fill();
     const p = 0.8 + 0.2 * Math.sin(t * 1.3);
     ctx.globalCompositeOperation = 'lighter';
-    U.drawGlow(ctx, 0, -34 * u, 140 * u * p, 205, 0.5, 0.75, 0.7);
+    MJ.glow(ctx, 0, -34 * u, 140 * u * p, 205, 0.5, 0.75, 0.7);
     ctx.globalCompositeOperation = 'source-over';
     const g = ctx.createRadialGradient(-5 * u, -40 * u, 2 * u, 0, -34 * u, 16 * u);
     g.addColorStop(0, 'rgba(255,255,255,0.98)');
@@ -539,7 +548,7 @@
       const R = 5.2;
       const F = MJ.Feelings;
       ctx.globalCompositeOperation = 'lighter';
-      U.drawGlow(ctx, x, y, 26, F.TURNS[layers[layers.length - 1]] ? F.TURNS[layers[layers.length - 1]].hue : 40, 0.5, 0.8, 0.45);
+      MJ.glow(ctx, x, y, 26, F.TURNS[layers[layers.length - 1]] ? F.TURNS[layers[layers.length - 1]].hue : 40, 0.5, 0.8, 0.45);
       ctx.globalCompositeOperation = 'source-over';
       for (let k = layers.length - 1; k >= 0; k--) {
         const tt = F.TURNS[layers[k]];
@@ -563,7 +572,7 @@
     const dimK = 1 - world.dim * 0.5;
     // 內部的金光
     ctx.globalCompositeOperation = 'lighter';
-    U.drawGlow(ctx, 0, -28, 90 * (0.9 + 0.1 * Math.sin(t * 2)), 45, 0.95, 0.6, 0.6);
+    MJ.glow(ctx, 0, -28, 90 * (0.9 + 0.1 * Math.sin(t * 2)), 45, 0.95, 0.6, 0.6);
     ctx.globalCompositeOperation = 'source-over';
     // 箱體
     ctx.fillStyle = 'hsl(24,42%,' + Math.round(26 * dimK) + '%)';
@@ -646,7 +655,7 @@
     const flick = 0.85 + 0.15 * Math.sin(t * 5.1) * Math.sin(t * 2.3);
     ctx.globalCompositeOperation = 'lighter';
     for (const x of [-44, -14, 16, 46]) {
-      U.drawGlow(ctx, x, -30, 34 * flick, 40, 0.9, 0.6, 0.6);
+      MJ.glow(ctx, x, -30, 34 * flick, 40, 0.9, 0.6, 0.6);
     }
     ctx.globalCompositeOperation = 'source-over';
     for (const x of [-44, -14, 16, 46]) {
