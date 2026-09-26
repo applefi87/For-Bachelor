@@ -134,6 +134,7 @@
     Game.ecoTimer = 60;
     Game.stepTimer = 20;
 
+    MJ.Store.persist();
     Game.bindInput();
     MJ.UI.init(Game);
     MJ.Ritual.init(Game);
@@ -1611,7 +1612,8 @@
       e = { id: d.id, t: d.t, words: d.words.slice(0, 3), fams: d.fams.slice(), fam: d.fam, i0: d.i0 };
       if (d.keepRaw && d.raw) e.raw = d.raw.slice(0, 600);
       s.entries.push(e);
-      if (s.entries.length > 800) s.entries.splice(0, s.entries.length - 800);
+      // 紀錄永遠不丟（遺失紀錄是最嚴重的事）。只有整份存檔太大時，才從最舊的紀錄拿掉原文，字、浪、陪法都留著
+      Game.trimSave();
     }
     if (d.crisis) e.crisis = true;
     e.turn = d.turn || null;
@@ -1664,6 +1666,21 @@
     }
     Game.eco.spawnOrb(e, (x, y) => Game.transform(e, x, y, raw), from);
     Game.save();
+  };
+
+  /** 存檔快超過瀏覽器的上限（通常 5 MB）時，從最舊的紀錄拿掉「原文」，其他都留著 */
+  Game.trimSave = () => {
+    const s = Game.state;
+    const LIMIT = 4 * 1024 * 1024;
+    let size = MJ.Store.size(s);
+    for (let i = 0; i < s.entries.length && size > LIMIT; i++) {
+      const e = s.entries[i];
+      if (e.raw) {
+        size -= e.raw.length * 2;
+        delete e.raw;
+        e.rawTrimmed = true;
+      }
+    }
   };
 
   /** 光球炸開，變成生物 */

@@ -71,6 +71,18 @@
     }
   };
 
+  /** 存檔序列化後大約幾個位元組（UTF-16，瀏覽器的配額是這樣算的） */
+  S.size = (state) => serialize(state).length * 2;
+
+  // 向瀏覽器申請「持久儲存」：降低久沒來時存檔被自動清掉的機率（不是保證，雲端備份才是）
+  S.persist = () => {
+    try {
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    } catch (e) {
+      /* 沒有這個 API 也沒關係 */
+    }
+  };
+
   S.reset = () => U.store.remove(KEY);
 
   S.exportText = (state) => {
