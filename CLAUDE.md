@@ -12,13 +12,16 @@
 - 在意的方向：背景和顏色會影響情緒；不要「明顯的 AI 風格」；鼓勵記錄心情是好的；「光」要稀有；心理安全優先。
 - **對歷史非常謹慎**：任何改動的 commit 細節都要保留，做不到要先確認。不要改寫歷史、不要 force push；要保存就另開分支。
 - 做決定的方式：自己把新舊兩版打開逐項對照，再用編號告訴我要留哪些。給他的清單要編號、寫出新舊差別和「在哪裡看」。
+- 從新版挑東西時，他要的是**「元素與精神」，不是照搬**：例如「說明牌用細線指著生物」這個想法留下，但牌子本身的樣式要照舊版（霧面玻璃、圓角、手寫字）。一次只給他一小部分，做完讓他看。
+- 新的改動先發到**另一個**預覽網址讓他比對，他確認 OK 才部署到他最初的網站（B2rN）。
 
 ## 目前狀態
 
 - `main`：重新設計**之前**的介面（光變稀有、依心理學引導、棲地商店、可直接撥打的危機專線）。
 - `claude/moon-jelly-redesign-ba`：B+A 介面重新設計的完成版，只當參考。規格在 `moon-jelly/DESIGN.md`，四份專家報告和審查圖在 `moon-jelly/docs/`。要看全部差異：`git diff main claude/moon-jelly-redesign-ba -- moon-jelly`。
-- 待辦：使用者會從 54 項差異清單（A 整體、B 開場與主畫面、C 生物說明牌、D 心情儀式、E 抽屜、F 紙、G 水族箱、H 文字）裡回覆要保留的編號；只把他選的搬回 main，每一項單獨成 commit。
-- 預覽頁（都只有使用者看得到）：舊版 main https://claude.ai/artifact/64LBCBmV8TAM1gJNj429RD；重新設計 https://claude.ai/artifact/DFG6X5wVXbGxf3VNLGH1s7；最早的 https://claude.ai/artifact/B2rNPPbEHxDQTRhYkoeBeR 停在危機專線改版之前。
+- `claude/creative-healing-website-8lqski`（工作分支，PR #2）：從 54 項差異清單挑回來、用舊風格重做的東西，每一項一個 commit：歡迎卡標題「入館」、左上角縮小、餵食選單變矮、**生物說明牌**（`js/callout.js`、`css/callout.css`：圈＋細線指著生物、牌子靠上或靠下不擋牠、往空處拉＝詳細、往邊緣拉＝關、左右滑換一隻）、陪完心情／出生／撈到／長大等通知之後牌子貼到那隻生物旁邊（第 18 項水族箱小事件**不要**細線，使用者要自己找）、第 4 步文案「現在大概在哪裡？」加「剛才」淡刻度（滑桿與浪照舊）。
+- 待辦：使用者還在從 54 項差異清單（A 整體、B 開場與主畫面、C 生物說明牌、D 心情儀式、E 抽屜、F 紙、G 水族箱、H 文字）裡挑；只把他選的搬回來，每一項單獨成 commit。另外召集過兩組專家（日夜差異更明顯、金流／App／營利），報告放 `moon-jelly/docs/`。
+- 預覽頁（都只有使用者看得到）：最新改動的比對用 https://claude.ai/artifact/MSyocsFgAuFb5TKRKJZ5i7（同一個檔案路徑重發就會更新）；重新設計 https://claude.ai/artifact/DFG6X5wVXbGxf3VNLGH1s7；使用者最初的網站 https://claude.ai/artifact/B2rNPPbEHxDQTRhYkoeBeR（停在危機專線改版之前；要更新它得先用 Artifact read 把整份讀完才能發布）。舊版 main 的預覽已依使用者要求刪除。
 
 ## 召集過的專家與他們的要求
 
