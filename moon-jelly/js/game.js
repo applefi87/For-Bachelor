@@ -1691,6 +1691,8 @@
       if (reef) {
         const [bx, by] = reef.base();
         Game.fx.trail(x, y, bx, by - 30 * Game.unit, f.hue);
+        // 珊瑚沒有自己的物件：給說明牌一個指向那一截的
+        c = { kind: 'coral', item: reef.items.find((it) => it.entry === e), reef };
       }
     }
     Game.handleEcoEvents(events);

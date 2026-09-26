@@ -181,13 +181,15 @@
           '<div class="btn-row center">' + (c ? '<button class="btn ghost" data-r="look">看看牠</button>' : '') + '<button class="btn" data-r="ok">好</button></div>';
         card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
         const look = card.querySelector('[data-r="look"]');
-        if (look)
-          look.addEventListener('click', () => {
-            close();
-            UI.callout.show(c, { auto: true, status: '剛長出來' });
-          });
+        if (look) look.addEventListener('click', () => close());
       },
-      { cls: 'result' }
+      {
+        cls: 'result',
+        // 卡片關上之後，牌子貼到剛長出來的那隻旁邊（寫過自傷字詞的那一份不自己跳出來，保持安靜）
+        onClose: () => {
+          if (c && !e.crisis) UI.callout.show(c, { auto: true, status: t === 'release' ? '吃掉了它' : '剛長出來' });
+        },
+      }
     );
   };
 
