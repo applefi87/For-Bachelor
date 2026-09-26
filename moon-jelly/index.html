@@ -49,12 +49,14 @@
 <div id="toasts" class="toasts" aria-live="polite"></div>
 
 <aside id="sheet" class="sheet" role="dialog" aria-label="">
-  <header class="sheet-head">
-    <button class="icon-btn sm" id="sheetBack" hidden aria-label="上一頁" data-icon="back"></button>
-    <h2 id="sheetTitle"></h2>
-    <button class="icon-btn sm" id="sheetClose" aria-label="關閉" data-icon="close"></button>
-  </header>
-  <div id="sheetBody" class="sheet-body"></div>
+  <div class="sheet-panel">
+    <header class="sheet-head">
+      <button type="button" class="btn-3 sheet-back" id="sheetBack" hidden>← 上一層</button>
+      <h2 id="sheetTitle" class="sheet-title"></h2>
+      <button type="button" class="btn-3 sheet-close" id="sheetClose">關閉</button>
+    </header>
+    <div id="sheetBody" class="sheet-body"></div>
+  </div>
 </aside>
 
 <div id="breathUI" class="breath-ui" hidden>

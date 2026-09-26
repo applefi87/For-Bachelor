@@ -1,229 +1,300 @@
-/* 海月水母館 — 抽屜：水母名片、找伴侶、商店、呼吸、更多、名冊、成就、設定。 */
+/* 海月水母館 — 抽屜：外殼，以及抽屜裡屬於海的內容
+ * （水母名片、找伴侶、商店、呼吸、更多、名冊、設定、關於）。
+ * 抽屜永遠是暗色展示牌：實色、直角、沒有陰影和模糊（DESIGN.md §6.7）。
+ * 紀錄（圖鑑、潮汐圖、天氣紀錄、成就）是一張張 .paper，放在 #sheetBody 裡；紙本身的樣子在 paper.css。 */
 
-.toast.achievement { border-color: rgba(255, 180, 162, 0.55); }
+/* ---------------- 外殼 ---------------- */
 
-.toast.discover .toast-sub, .toast.achievement .toast-sub { color: var(--glow); }
-
-/* ---------------- 抽屜 ---------------- */
-
+/* #sheet 固定在最後的位置、剪掉外面；裡面的 .sheet-panel 滑進來。
+ * 手機上抽屜因此像是從底座後面長出來，不會滑過底座。 */
 .sheet {
   position: fixed;
-  top: calc(var(--safe-t) + 16px);
-  right: 16px;
-  bottom: calc(var(--safe-b) + 16px);
-  width: min(410px, calc(100% - 32px));
+  top: 0;
+  right: 0;
+  bottom: calc(var(--base-h) + var(--safe-b));
+  z-index: 20;
+  width: 464px;
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
-  border: 1px solid var(--line-2);
-  background: var(--glass-strong);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
-  z-index: 20;
-  transform: translateX(calc(100% + 32px));
+  overflow: hidden;
   visibility: hidden;
-  transition: transform 0.42s var(--ease), visibility 0s linear 0.42s;
+  pointer-events: none;
+  transition: visibility 0s linear 200ms;
 }
 
-.sheet.open { transform: none; visibility: visible; transition: transform 0.42s var(--ease); }
+.sheet.open { visibility: visible; pointer-events: auto; transition: none; }
 
+.sheet-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-t);
+  border-left: 1px solid var(--rule);
+  background: var(--plate-a);
+  color: var(--ink-1);
+  transform: translateX(100%);
+  transition: transform 200ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.sheet.open .sheet-panel { transform: none; transition: transform 280ms var(--ease); }
+
+/* 頁首 56：← 上一層、標題、關閉 */
 .sheet-head {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 14px 12px 8px 20px;
+  gap: 16px;
+  min-height: 56px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--rule);
 }
 
-.sheet-head h2 {
-  flex: 1;
+.sheet-back, .sheet-close { flex: none; white-space: nowrap; }
+
+.sheet-title {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-wrap: balance;
   overflow: hidden;
+  font-size: var(--t2);
+  font-weight: 500;
+  line-height: var(--lh2);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-#sheetBack + h2 { padding-left: 0; }
+.sheet-title .num { font-size: var(--t4); color: var(--ink-2); }
 
-.sheet-head #sheetBack:not([hidden]) { margin-left: -12px; }
+.sheet-title .hand { color: var(--ink-1); }
 
 .sheet-body {
-  flex: 1;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 4px 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+  padding: 24px 24px 48px;
 }
 
 .sheet-body > * { flex-shrink: 0; }
 
-@media (max-width: 700px) {
+/* 放紙的時候：抽屜內距 16，紙與紙之間 16 的暗色間隔，紙的四周都看得到暗色 */
+.sheet-body:has(> .paper) { padding: 16px 16px 32px; }
+
+/* 段落小標：線在標題上方（型錄的做法，不是框）；段落之間 32、標題到內容 12 */
+.sheet-body > .sub-h { margin: 16px 0 -4px; padding-top: 12px; border-top: 1px solid var(--rule); }
+
+.sheet-body > .sub-h:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+@media (max-width: 1023px) {
+  .sheet { width: 400px; }
+}
+
+/* 手機：從底座上方長出來、全寬，上方留一條看得到的海 */
+@media (max-width: 699px) {
   .sheet {
     top: auto;
     left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    max-height: 82%;
-    border-radius: 24px 24px 0 0;
-    border-bottom: 0;
-    padding-bottom: var(--safe-b);
-    transform: translateY(105%);
+    width: auto;
+    max-height: calc(100vh - var(--base-h) - var(--safe-b) - var(--safe-t) - 64px);
+    max-height: calc(100dvh - var(--base-h) - var(--safe-b) - var(--safe-t) - 64px);
   }
-  .sheet.open { transform: none; }
-  .sheet-head::before {
-    content: "";
-    position: absolute;
-    top: 7px;
-    left: 50%;
-    width: 38px;
-    height: 4px;
-    margin-left: -19px;
-    border-radius: 4px;
-    background: var(--line-2);
-  }
+  .sheet-panel { padding-top: 0; border-left: 0; border-top: 1px solid var(--rule); transform: translateY(100%); }
+  .sheet-head { padding: 0 16px; }
+  .sheet-body { padding: 16px 16px 32px; }
 }
 
-/* 名片 */
+/* ---------------- 清單的列（按鈕做的列） ---------------- */
 
-.card-hero { display: grid; grid-template-columns: 168px 1fr; gap: 14px; align-items: center; }
-
-.card-portrait {
-  width: 168px;
-  height: 168px;
-  border-radius: 20px;
-  background: radial-gradient(circle at 50% 40%, rgba(40, 90, 120, 0.35), rgba(4, 14, 24, 0.6) 70%);
-  border: 1px solid var(--line);
+button.row {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--hair);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.card-id { display: grid; gap: 8px; min-width: 0; }
+button.row:last-child { border-bottom: 0; }
 
-.rarity { font-size: 14px; color: var(--mist); }
+button.row:active { background: var(--rule); }
 
-@media (max-width: 420px) {
-  .card-hero { grid-template-columns: 132px 1fr; }
+.rows > li > .row { border-bottom: 1px solid var(--hair); }
+
+.rows > li:last-child > .row { border-bottom: 0; }
+
+.row-title .hand { font-size: var(--t3); font-weight: 400; line-height: 1.3; }
+
+.row-sub.clue { color: var(--ink-1); }
+
+.row > .num { font-size: var(--t6); color: var(--ink-2); }
+
+.pick-row { grid-template-columns: auto minmax(0, 1fr); }
+
+/* 進入下一頁的列：名稱＋說明＋行尾「→」 */
+.nav-row { grid-template-columns: minmax(0, 1fr) auto; min-height: 56px; }
+
+.roster-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+
+.nav-row .go { color: var(--ink-3); }
+
+/* 「更多」的選單列：名稱和說明排在同一行，一打開就看得到最後一列 */
+.menu-row .row-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; }
+
+@media (hover: hover) {
+  .nav-row:hover .row-title { text-decoration: underline 1px; text-underline-offset: 0.3em; text-decoration-color: var(--rule-strong); }
+}
+
+/* ---------------- 水母名片 ---------------- */
+
+.card-hero { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 16px; align-items: start; }
+
+/* 標本窗：看得到海的小窗，裡面是活的水母；不加框、不加漸層 */
+.card-portrait { display: block; width: 168px; height: 168px; background: var(--sea-3); }
+
+.card-id { display: grid; gap: 4px; align-content: start; min-width: 0; padding-top: 4px; }
+
+.card-id p { margin: 0; }
+
+.card-sp { font-size: var(--t4); line-height: var(--lh4); }
+
+.card-sp .latin { color: var(--ink-2); }
+
+.card-line, .card-traits { font-size: var(--t5); line-height: var(--lh5); color: var(--ink-2); }
+
+.card-line .num { font-size: var(--t6); color: var(--ink-1); }
+
+/* 基因的顏色：方形色票（資料，永遠搭配名字） */
+.swatch-sq { display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -1px; background: var(--c); }
+
+@media (max-width: 699px) {
+  .card-hero { grid-template-columns: 132px minmax(0, 1fr); }
   .card-portrait { width: 132px; height: 132px; }
 }
 
+/* 數值條：4px 單色，右邊等寬數字 */
 .meters { display: grid; gap: 8px; }
 
-.meter { display: grid; grid-template-columns: 3em 1fr; align-items: center; gap: 10px; font-size: 13.5px; color: var(--mist); }
+.meter { display: grid; grid-template-columns: 3em minmax(0, 1fr) 3ch; align-items: center; gap: 12px; }
 
-.btn.price { background: rgba(245, 218, 146, 0.12); border-color: rgba(245, 218, 146, 0.45); color: #fff1c8; font-variant-numeric: tabular-nums; flex: none; }
+.meter > span:first-child { font-size: var(--t5); line-height: var(--lh5); color: var(--ink-3); }
 
-.btn.price:not(:disabled):hover { background: rgba(245, 218, 146, 0.22); }
+.meter .num { font-size: var(--t6); color: var(--ink-1); text-align: right; }
 
-.row-title .stars { font-size: 12px; font-weight: 400; }
+/* 資料表：兩欄，列間細線，外面不包框 */
+.card-kv { gap: 0; }
 
-.row-feel { font-size: 12.5px; color: var(--glow); }
+.card-kv dt, .card-kv dd { padding: 8px 0; border-bottom: 1px solid var(--rule); line-height: 24px; }
 
-.row-feel::before { content: "✦ "; }
+.card-kv dt { padding-right: 16px; }
 
-.mate-self { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.card-kv > div:last-child > dt, .card-kv > div:last-child > dd { border-bottom: 0; }
 
-/* 商店 */
+.card-kv .num { font-size: var(--t4); }
 
-.wallet { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 18px; font-weight: 700; color: #fff5d6; font-variant-numeric: tabular-nums; }
+.card-actions .danger { margin-left: auto; }
 
-.wallet-sub { font-size: 12.5px; font-weight: 400; color: var(--mist); flex-basis: 100%; }
+.card-inline { display: grid; gap: 8px; }
 
-.thumb {
-  width: 72px;
-  height: 72px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: radial-gradient(circle at 50% 40%, rgba(40, 90, 120, 0.3), rgba(4, 14, 24, 0.55) 70%);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
+.card-ask { margin: 0; font-size: var(--t4); line-height: var(--lh4); }
+
+.card-ask .hand { font-size: var(--t3); }
+
+.card-rename { display: grid; gap: 8px; }
+
+/* ---------------- 找伴侶 ---------------- */
+
+.mate-pair { display: flex; align-items: center; gap: 12px; margin: 0; font-size: var(--t4); line-height: var(--lh4); }
+
+.mate-pair .hand { font-size: var(--t3); }
+
+.mate-pair .portrait { flex: none; }
+
+/* ---------------- 商店 ---------------- */
+
+.wallet { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: 0; }
+
+.wallet-l { font-size: var(--t4); color: var(--ink-2); }
+
+.wallet-n { font-size: var(--t2); line-height: var(--lh2); color: var(--ink-1); }
+
+.wallet-rate { margin-left: 8px; font-size: var(--t5); color: var(--ink-3); }
+
+.wallet-rate .num { font-size: var(--t6); color: var(--ink-2); }
+
+.shop-row { grid-template-columns: 72px minmax(0, 1fr) auto; align-items: start; gap: 16px; padding: 16px 0; }
+
+/* 縮圖：生物與物件本身，直接畫在暗色上；直角、不加框、不加漸層 */
+.thumb { display: block; width: 72px; height: 72px; background: var(--plate); }
+
+.thumb-theme { height: 48px; }
+
+.thumb-cap { display: grid; align-content: center; gap: 0; }
+
+.thumb-cap .num { font-size: var(--t2); line-height: var(--lh2); color: var(--ink-1); }
+
+.shop-side { display: grid; justify-items: end; align-content: start; gap: 0; text-align: right; }
+
+.shop-side .price { font-size: var(--t4); line-height: var(--lh4); color: var(--ink-2); white-space: nowrap; }
+
+.shop-side .price .num { color: var(--ink-1); }
+
+.shop-side .short, .shop-side .state { display: block; min-height: 44px; font-size: var(--t5); line-height: 44px; color: var(--ink-2); white-space: nowrap; }
+
+.shop-side .state.now { color: var(--accent); }
+
+.shop-side .short .num { font-size: var(--t6); color: var(--ink-1); }
+
+@media (max-width: 699px) {
+  .shop-row { grid-template-columns: 72px minmax(0, 1fr); }
+  .shop-side { grid-column: 2; display: flex; align-items: center; justify-content: flex-start; gap: 16px; text-align: left; }
+  .shop-side .state, .shop-side .short { min-height: 32px; line-height: 32px; }
 }
 
-.thumb.net { color: var(--sea); }
+/* ---------------- 呼吸 ---------------- */
 
-.thumb.tank b { font-size: 16px; color: var(--sea); font-variant-numeric: tabular-nums; }
+.breath-row { grid-template-columns: minmax(0, 1fr) auto; }
 
-.shop-rows .row { gap: 14px; }
+.breath-row .beats { font-size: var(--t4); color: var(--ink-2); white-space: nowrap; }
 
-@media (max-width: 420px) {
-  .shop-rows .row { grid-template-columns: auto 1fr; }
-  .shop-rows .row > .btn { grid-column: 2; justify-self: start; }
-  .thumb { width: 60px; height: 60px; }
-}
+/* ---------------- 更多 ---------------- */
 
-.theme-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.sleep-block { display: grid; gap: 4px; }
 
-.theme-card { display: grid; gap: 6px; align-content: start; justify-items: start; padding: 10px; border-radius: 18px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.grp-h { margin: 0; font-size: var(--t4); font-weight: 500; line-height: var(--lh4); }
 
-.theme-card.using { border-color: rgba(134, 224, 214, 0.5); }
+.nav-rows { margin-top: 16px; border-top: 1px solid var(--rule); }
 
-.theme-sw { position: relative; width: 100%; aspect-ratio: 16 / 10; max-width: 100%; border-radius: 12px; overflow: hidden; display: block; }
+/* ---------------- 設定 ---------------- */
 
-.theme-sw i { position: absolute; left: 0; right: 0; bottom: 0; height: 18%; }
+.set-list { display: grid; }
 
-.theme-name { font-weight: 700; font-size: 15px; }
+.set-list .toggle { border-bottom-color: var(--rule); }
 
-.theme-desc { font-size: 12.5px; color: var(--mist); line-height: 1.5; }
+.set-vol { display: grid; gap: 0; padding-top: 12px; }
 
-.sleep-card { display: grid; gap: 10px; padding: 14px; border-radius: 18px; border: 1px solid var(--line); background: linear-gradient(160deg, rgba(40, 50, 100, 0.35), rgba(8, 20, 36, 0.2)); }
+.set-vol-h { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
 
-.sleep-head { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; color: #d7dcff; }
+.set-vol-h b { font-size: var(--t4); font-weight: 400; }
 
-.sleep-head div { display: grid; }
+.set-vol-h .num { font-size: var(--t4); color: var(--ink-1); }
 
-.sleep-head b { font-size: 16px; color: var(--ink); }
+.save-box { display: grid; gap: 8px; }
 
-.sleep-head small { color: var(--mist); font-size: 13px; }
+.save-box .code { margin: 0; }
 
-.menu { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+/* ---------------- 關於 ---------------- */
 
-.menu-item {
-  width: 100%;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 14px;
-  align-items: center;
-  padding: 11px 10px;
-  border: 0;
-  border-radius: 14px;
-  background: none;
-  text-align: left;
-  color: var(--mist);
-}
+.sheet-body .facts-list { gap: 8px; }
 
-.menu-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--ink); }
+.tel { color: var(--ink-1); text-decoration: underline 1px; text-underline-offset: 0.3em; text-decoration-color: var(--rule-strong); }
 
-.menu-item span { display: grid; }
-
-.menu-item b { color: var(--ink); font-size: 15.5px; }
-
-.menu-item small { font-size: 12.5px; }
-
-.ach-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-
-.ach { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); color: var(--faint); }
-
-.ach div { display: grid; }
-
-.ach b { font-size: 15px; color: var(--mist); }
-
-.ach small { font-size: 12.5px; }
-
-.ach-r { font-size: 12.5px; font-variant-numeric: tabular-nums; }
-
-.ach.done { color: var(--glow); border-color: rgba(245, 218, 146, 0.3); background: rgba(245, 218, 146, 0.05); }
-
-.ach.done b { color: var(--ink); }
-
-.ach.done small { color: var(--mist); }
-
-/* 設定 */
-
-.set-group { display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 16px; padding: 4px 14px; }
-
-.sheet-body { position: relative; }
+.tel:hover { text-decoration-color: currentColor; }
