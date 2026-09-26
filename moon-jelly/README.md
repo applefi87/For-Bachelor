@@ -121,6 +121,7 @@ moon-jelly/
 │   └── ritual.css   心情的儀式
 ├── js/
 │   ├── util.js      小工具、發光貼圖快取
+│   ├── daynight.js  日夜的時鐘：海、水母、聲音、生物都從這裡拿時段（docs/features/daynight.md）
 │   ├── content.js   名字、海的來信、小知識、療癒句子
 │   ├── genes.js     基因、稀有度、繁殖配方
 │   ├── audio.js     聲音引擎
@@ -141,5 +142,6 @@ moon-jelly/
 │   ├── ritual.js    心情的儀式
 │   ├── tides.js     潮汐圖
 │   └── game.js      主迴圈、輸入、經濟、事件
+├── docs/features/   每個功能一個檔案：一句話、已有、待開發、決定過的事（先看 README.md）
 └── tools/build-single.js
 ```

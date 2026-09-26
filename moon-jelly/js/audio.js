@@ -152,9 +152,12 @@
     A.master.gain.setTargetAtTime(s.muted ? 0 : s.volume, now, fadeIn ? 1.2 : 0.15);
     A.musicBus.gain.setTargetAtTime(s.music ? 1 : 0, now, 0.4);
     A.sfxBus.gain.setTargetAtTime(s.sfx ? 1 : 0, now, 0.1);
-    A.waterGain.gain.setTargetAtTime(mood.water, now, 1.5);
+    // 夜裡跟著閉館：水聲 ×0.7、和弦墊 ×0.85（鈴聲在 tick 裡變稀）
+    const night = MJ.Day ? MJ.Day.night : 0;
+    A.nightApplied = night;
+    A.waterGain.gain.setTargetAtTime(mood.water * (1 - 0.3 * night), now, 1.5);
     A.rainGain.gain.setTargetAtTime(Math.max(mood.rain, A.extraRain), now, 2);
-    A.padBus.gain.setTargetAtTime(mood.pad, now, 2);
+    A.padBus.gain.setTargetAtTime(mood.pad * (1 - 0.15 * night), now, 2);
   };
 
   A.setRainLayer = (on) => {
@@ -169,6 +172,8 @@
     const s = A.settings;
     if (!s.music || A.sleeping === 'done') return;
     const mood = MOODS[s.mood] || MOODS.deep;
+    const night = MJ.Day ? MJ.Day.night : 0;
+    if (Math.abs(night - (A.nightApplied || 0)) > 0.05) A.applySettings();
 
     if (mood.pad > 0 && now >= A.nextChordAt - 1.2) {
       const at = Math.max(A.nextChordAt, now + 0.05);
@@ -180,10 +185,11 @@
     }
 
     // 水母唱得多的時候，背景的鈴聲就少一點
-    const bellDensity = mood.bells * (s.sing && A.singers >= 3 ? 0.4 : 1);
+    // 夜裡鈴聲稀一點、低兩度
+    const bellDensity = mood.bells * (s.sing && A.singers >= 3 ? 0.4 : 1) * (1 - 0.6 * night);
     if (bellDensity > 0 && now >= A.nextBellAt) {
       if (Math.random() < bellDensity) {
-        const idx = U.randInt(5, 14);
+        const idx = U.randInt(5 - Math.round(2 * night), 14 - Math.round(3 * night));
         A.bell(degMidi(idx), U.rand(0.1, 0.24), U.rand(-0.7, 0.7), now + 0.02, A.musicBus, U.rand(2.6, 4.2));
         if (Math.random() < 0.2) A.bell(degMidi(idx + 2), U.rand(0.06, 0.12), U.rand(-0.7, 0.7), now + 0.32, A.musicBus, 3);
       }

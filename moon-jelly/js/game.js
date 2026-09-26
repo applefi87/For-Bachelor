@@ -300,6 +300,7 @@
     const w = Game.world;
     const dimTarget = Game.mode === 'sleep' ? 0.62 : Game.mode === 'breath' ? 0.25 : 0;
     w.dim += (dimTarget - w.dim) * Math.min(1, dt * 0.8);
+    MJ.Day.update(dt);
     w.update(dt, Game.t);
     for (const d of s.decor) MJ.Decor.update(d, dt, w, Game);
     Game.food.update(dt);
@@ -1940,7 +1941,6 @@
     if (Game.started) return;
     Game.started = true;
     A.init();
-    const h = new Date().getHours();
     Game.markVisit();
     MJ.UI.afterStart(Game.offline);
   };
