@@ -338,10 +338,10 @@ hr, .hr { height: 0; margin: 16px 0; border: 0; border-top: 1px solid var(--hair
   flex: none;
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 8px;
   min-height: 44px;
   margin-bottom: -1px;
-  padding: 12px 0 10px;
+  padding: 12px 0;
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
@@ -598,7 +598,7 @@ input.lined, input.field { height: 44px; line-height: 44px; background: none; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .chips.center { justify-content: flex-start; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--fg-2); font-size: var(--t5); white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--fg-2); font-size: var(--t5); white-space: nowrap; }
 .chip .sw { width: 8px; height: 8px; border-radius: 50%; box-shadow: none; }
 .chip.special { color: var(--fg); background: none; }
 
@@ -649,7 +649,7 @@ input.lined, input.field { height: 44px; line-height: 44px; background: none; }
 .care-line:hover, .care-line:focus-visible { border-color: var(--accent); }
 .care-name { display: grid; font-size: 16px; font-weight: 500; }
 .care-name small { font-size: 13px; font-weight: 400; color: var(--ink-2); }
-.care-num { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 48px; border-radius: 0; background: var(--accent); color: var(--plate); }
+.care-num { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; min-height: 48px; border-radius: 0; background: var(--accent); color: var(--plate); }
 .care-num .i { width: 18px; height: 18px; stroke-width: 1.8; }
 .care-num b { font-family: var(--f-system); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .care-num em { font-style: normal; font-size: 13px; }
