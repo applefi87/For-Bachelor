@@ -68,7 +68,7 @@
       title = '「' + fam.name + '」的珍珠貝';
       const kinds = new Set(c.layers).size;
       html += '<p class="lede">「' + fam.name + '」來了很多次。每來一次，珍珠就多一層；那一層的顏色，是你那一次選的陪法。</p>';
-      html += '<div class="pearl-row"><canvas class="pearl-cv" id="pearlCv" width="120" height="120" aria-label="珍珠的樣子"></canvas><div><b>' + c.layers.length + ' 層・' + kinds + ' 種陪法</b><small>' + (c.pearls ? '已經結成 ' + c.pearls + ' 顆・' : '') + '七層以上、用過三種陪法，就會結成一顆</small></div></div>';
+      html += '<div class="pearl-row"><canvas class="pearl-cv" id="pearlCv" width="120" height="120" aria-label="珍珠的樣子"></canvas><div><b>' + c.layers.length + ' 層・' + kinds + ' 種陪法</b><small>' + (c.pearls ? '已經結成 ' + c.pearls + ' 顆' : '還沒結成珍珠') + '</small></div></div>';
       html += '<ol class="layers">' + c.layers.map((t) => '<li>' + turnChip(t) + '</li>').join('') + '</ol>';
     } else if (kind === 'octopus') {
       html += '<p class="lede">這個月，你用過這些方式陪自己的感覺：</p><div class="chips">' + c.turns.map((t) => turnChip(t)).join('') + '</div>';
@@ -153,8 +153,10 @@
     if (t === 'need' && e.needs && e.needs.length) q = F.NEED_QUESTIONS[e.needs[0]];
     else if (F.TURN_QUESTIONS[t]) q = U.pick(F.TURN_QUESTIONS[t]);
     const hue = t ? F.TURNS[t].hue : 200;
-    const gift = e._gift;
+    // 光還是會加（HUD 上看得到），但不寫在這張牌上：記下心情不該像在換錢
     delete e._gift;
+    // 文字裡出現過自傷的字，或很強的難過、疲憊、孤單、自責：底下放一行專線，不跳出、不打斷
+    const care = e.crisis || (e.i0 != null && e.i0 >= 9 && ['sad', 'tired', 'lonely', 'shame'].includes(e.fam));
     UI.showModal(
       (card, close) => {
         card.innerHTML =
@@ -162,7 +164,7 @@
           '<p class="res-words">' + w + '</p><h2 class="m-title">' + head + '</h2><p class="m-text">' + line + '</p>' +
           (wave ? '<p class="res-wave">' + wave + '</p>' : '') +
           (q ? '<p class="sea-q">' + esc(q) + '</p>' : '') +
-          (gift ? '<p class="res-gift"><span class="light-dot sm"></span>謝謝你記下它・+' + gift.n + ' 光</p>' : '') +
+          (care ? '<p class="res-care"><a href="tel:1925">專線 1925（24 小時・免付費）</a></p>' : '') +
           '<div class="btn-row center">' + (c ? '<button class="btn ghost" data-r="look">看看牠</button>' : '') + '<button class="btn" data-r="ok">好</button></div>';
         card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
         const look = card.querySelector('[data-r="look"]');

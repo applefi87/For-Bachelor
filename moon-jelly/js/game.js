@@ -39,7 +39,6 @@
     ['feed_100', '浮游生物大師', '餵食 100 次', 80, (s) => s.stats.feeds >= 100],
     ['pet_10', '軟軟的', '摸摸水母 10 次', 20, (s) => s.stats.pets >= 10],
     ['pet_200', '水母知己', '摸摸水母 200 次', 150, (s) => s.stats.pets >= 200],
-    ['worry_1', '交給海', '第一次把感覺倒出來，交給水母', 0, (s) => s.stats.worries >= 1 || s.entries.some((e) => e.turn === 'release')],
     ['worry_10', '輕一點了', '陪了 10 份感覺', 120, (s) => s.stats.rituals >= 10],
     ['worry_50', '潮來潮往', '陪了 50 份感覺', 300, (s) => s.stats.rituals >= 50],
     ['breath_1', '深呼吸', '完成一次呼吸練習', 30, (s) => s.stats.breaths >= 1],
@@ -52,13 +51,12 @@
     ['codex_25', '海洋學家', '圖鑑發現 25 項', 400, (s) => Object.keys(s.codex).length >= 25],
     ['codex_all', '海月博士', '圖鑑全部完成', 800, (s) => Object.keys(s.codex).length >= Gn.codexTotal()],
     ['special_1', '奇蹟', '第一次遇見特殊體質的水母', 150, (s) => Object.keys(s.codex).some((k) => k.startsWith('special:'))],
-    ['streak_3', '常來玩', '連續 3 天來看水母', 60, (s) => s.daily.streak >= 3],
-    ['streak_7', '一週的潮汐', '連續 7 天來看水母', 300, (s) => s.daily.streak >= 7],
+    ['streak_3', '常來玩', '來看水母 3 天（不用連續）', 60, (s) => Object.keys(s.visits || {}).length >= 3],
+    ['streak_7', '一週的潮汐', '來看水母 7 天（不用連續）', 300, (s) => Object.keys(s.visits || {}).length >= 7],
     ['decor_5', '小小造景師', '擁有 5 個裝飾', 100, (s) => s.decor.length >= 5],
     ['theme_2', '換個風景', '擁有第二個主題', 50, (s) => s.themes.length >= 2],
     ['tank_max', '大海的一角', '把水族箱升到最大', 500, (s) => s.tank >= TANK.length - 1],
     ['family_12', '熱熱鬧鬧', '同時養 12 隻水母', 250, (s, g) => g.tankJellies().length >= 12],
-    ['night_owl', '夜貓子', '在凌晨 0～4 點來看水母', 50, (s) => !!s.flags.nightOwl],
     ['star', '許個願', '接住一顆流星', 40, (s) => !!s.flags.star],
     ['bubbles_50', '戳泡泡', '戳破 50 顆泡泡', 60, (s) => s.stats.bubbles >= 50],
     ['sleep', '晚安', '第一次使用晚安模式', 30, (s) => s.stats.sleeps >= 1],
@@ -66,11 +64,8 @@
     ['light_10k', '萬家燈火', '累積獲得 10,000 光', 300, (s) => s.lifetimeLight >= 10000],
     ['ritual_1', '替它取名字', '第一次替一份感覺取名字', 20, (s) => s.stats.rituals >= 1],
     ['words_20', '說得很準', '用過 20 個不同的感覺字', 120, (s) => new Set([].concat(...s.entries.map((e) => e.words || []))).size >= 20],
-    ['turns_5', '很多種陪法', '用過五種不同的陪法', 0, (s) => new Set(s.entries.map((e) => e.turn).filter(Boolean)).size >= 5],
     ['step_1', '小事做到了', '完成一件小事', 40, (s) => s.stats.stepsDone >= 1],
     ['chain', '空缺鏈', '看見寄居蟹一個接一個換殼', 30, (s) => !!s.flags.chain],
-    ['octopus', '章魚出現了', '一個月內用過四種以上的陪法', 0, (s, g) => !!(g.eco && g.eco.octopus)],
-    ['pearl_1', '第一顆珍珠', '同一種感覺，用不同的方式陪了它七次', 0, (s, g) => !!(g.eco && g.eco.pearls().length)],
   ].map(([id, name, desc, reward, test]) => ({ id, name, desc, reward, test }));
 
   const TUTORIAL = [
@@ -1349,21 +1344,35 @@
 
   Game.letterDue = () => Game.state.daily.last !== U.today();
 
+  /** 來過的日子：只增不減，不算連續 */
+  Game.markVisit = () => {
+    const s = Game.state;
+    s.visits = s.visits || {};
+    s.visits[U.today()] = 1;
+    const keys = Object.keys(s.visits).sort();
+    if (keys.length > 400) for (const k of keys.slice(0, keys.length - 400)) delete s.visits[k];
+  };
+  Game.daysThisMonth = () => {
+    const m = U.today().slice(0, 7);
+    return Object.keys(Game.state.visits || {}).filter((k) => k.startsWith(m)).length;
+  };
+
   Game.claimLetter = (moodId) => {
     const s = Game.state;
     const d = s.daily;
     const today = U.today();
     if (d.last === today) return null;
     const yesterday = U.today(new Date(Date.now() - 86400000));
+    // 連續天數還是記著（舊存檔相容），但不再顯示、不再影響獎勵：斷掉的連續紀錄很容易變成自責
     d.streak = d.last === yesterday ? d.streak + 1 : 1;
     d.best = Math.max(d.best || 0, d.streak);
     d.last = today;
     s.moods[today] = moodId;
-    const reward = Math.min(60, 20 + (d.streak - 1) * 5);
+    const reward = 25;
     Game.addLight(reward);
     const gifts = ['星星糖 ×1'];
     s.inventory.star = (s.inventory.star || 0) + 1;
-    if (d.streak % 3 === 0) {
+    if ((s.stats.letters + 1) % 3 === 0) {
       s.inventory.dew = (s.inventory.dew || 0) + 1;
       gifts.push('月光露 ×1');
     }
@@ -1376,7 +1385,7 @@
       letter: Game.nextLetter(),
       fact: U.pick(C.facts),
       reward,
-      streak: d.streak,
+      days: Game.daysThisMonth(),
       gifts,
     };
   };
@@ -1618,7 +1627,9 @@
       s.entries.push(e);
       if (s.entries.length > 800) s.entries.splice(0, s.entries.length - 800);
     }
+    if (d.crisis) e.crisis = true;
     e.turn = d.turn || null;
+    if (e.turn === 'allow' && d.waves) e.waves = d.waves;
     if (e.turn) {
       e.tt = now;
       e.i1 = d.i1 == null ? e.i0 : d.i1;
@@ -1637,14 +1648,15 @@
     }
     // 獎勵的是「記下來」這個動作：不管是什麼感覺、選了哪種陪法（或還沒決定），都一樣。
     // 一天前三份給光；之後照樣長生物，只是不再給光，免得感覺變成賺錢的工具
-    if (!d.resume && s.ritualCount < RITUAL_DAILY) {
+    // 文字裡出現過自傷的字：不給光、不跳通知（延到下次打開），也不讓那段字變成動畫
+    if (!d.resume && s.ritualCount < RITUAL_DAILY && !d.crisis) {
       s.ritualCount++;
       Game.addLight(RITUAL_LIGHT);
       e._gift = { n: RITUAL_LIGHT, count: s.ritualCount };
     }
-    MJ.UI.quiet(75);
+    MJ.UI.quiet(d.crisis ? 1e7 : 75);
     Game.tut('worry');
-    const raw = d.raw || (e.turn === 'release' ? d.text : '');
+    const raw = d.crisis ? '' : d.raw || (e.turn === 'release' ? d.text : '');
     A.whoosh();
 
     if (e.turn === 'release') {
@@ -1723,10 +1735,11 @@
     g.shape = f.a > 0.4 ? U.pick(['bell', 'tall', 'lantern']) : f.a < -0.3 ? U.pick(['disc', 'dome']) : U.pick(['dome', 'crown', 'bell']);
     g.pattern = e.i0 >= 8 ? 'rings' : e.words.length >= 3 ? 'dots' : U.pick(['clover', 'plain', 'spiral']);
     g.size = 0.8 + e.i0 * 0.03;
-    const drop = e.i0 - (e.i1 == null ? e.i0 : e.i1);
-    g.glow = U.clamp(0.45 + drop * 0.08, 0.3, 1);
+    // 亮度和月光跟著「陪它看了幾道浪」，不跟著強度下降：接納不是為了讓它變小，也不該讓人想把分數報低
+    const waves = e.waves || 1;
+    g.glow = U.clamp(0.5 + waves * 0.08, 0.3, 1);
     // 陪一份很大的浪退下來，出生的水母會帶著月光
-    if (drop >= 4) g.special = 'moonlight';
+    if (waves >= 3) g.special = 'moonlight';
     Gn.normalize(g);
     const j = new MJ.Jelly(
       {
@@ -1744,7 +1757,7 @@
     );
     Game.jellies.push(j);
     e.jelly = j.id;
-    Game.register(j.genes, false);
+    Game.register(j.genes, false, !!e.crisis);
     // 心情變成的水母太多的時候，最早的那一隻會慢慢游回大海
     const born = Game.jellies.filter((k) => k.origin && !k.leaving && k !== j);
     if (born.length >= ORIGIN_MAX) Game.release(born[0].id, true);
@@ -1927,10 +1940,10 @@
   /** 很難受的時候，海可能會把你以前寫的一句話送回來 */
   Game.maybeReturnBottle = (e) => {
     const s = Game.state;
-    if (F.isPositive(e.fam)) return;
+    if (F.isPositive(e.fam) || e.crisis) return;
     if (Math.max(e.i0 || 0, e.i1 || 0) < 6) return;
     if (Date.now() - (s.eco.lastReturn || 0) < 20 * 3600 * 1000) return;
-    const pool = s.entries.filter((x) => ['keep', 'savor', 'thank', 'kind'].includes(x.turn) && x.text && Date.now() - x.t > 12 * 3600 * 1000);
+    const pool = s.entries.filter((x) => !x.crisis && ['keep', 'savor', 'thank', 'kind'].includes(x.turn) && x.text && Date.now() - x.t > 12 * 3600 * 1000);
     if (!pool.length || Math.random() > 0.75) return;
     const keeps = pool.filter((x) => x.turn === 'keep');
     const pick = keeps.length && Math.random() < 0.6 ? U.pick(keeps) : U.pick(pool);
@@ -1956,7 +1969,7 @@
     Game.started = true;
     A.init();
     const h = new Date().getHours();
-    if (h >= 0 && h < 4) Game.state.flags.nightOwl = true;
+    Game.markVisit();
     MJ.UI.afterStart(Game.offline);
   };
 

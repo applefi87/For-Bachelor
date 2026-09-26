@@ -313,3 +313,36 @@ button { cursor: pointer; }
 }
 
 .btn-row.between { justify-content: space-between; }
+
+/* ================================================================
+ * 專線（危機畫面）：全站唯一不套美術風格的安全元件。
+ * 號碼是整列可以直接撥打的連結；不用紅色、不閃、不用驚嘆號。
+ * ================================================================ */
+.care { display: grid; gap: 12px; text-align: left; }
+.care-title { margin: 0; font-family: "Noto Sans TC", var(--font); font-size: 20px; font-weight: 600; color: #f2f5f7; }
+.care-text { margin: 0; font-family: "Noto Sans TC", var(--font); font-size: 16px; line-height: 1.7; color: #c7d9df; }
+.care-small { margin: -4px 0 0; font-family: "Noto Sans TC", var(--font); font-size: 13px; color: #a9c1ca; }
+.care-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.care-line {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 64px; padding: 8px 8px 8px 16px; border-radius: 8px;
+  background: #0e1a24; border: 1px solid rgba(190, 228, 238, 0.22);
+  color: #f2f5f7; text-decoration: none; font-family: "Noto Sans TC", var(--font);
+}
+.care-line:hover, .care-line:focus-visible { border-color: #86e0d6; }
+.care-name { display: grid; font-size: 16px; font-weight: 500; }
+.care-name small { font-size: 13px; font-weight: 400; color: #a9c1ca; }
+.care-num { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 48px; border-radius: 6px; background: #86e0d6; color: #0e1a24; }
+.care-num .i { width: 18px; height: 18px; stroke-width: 1.8; }
+.care-num b { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 24px; font-weight: 500; letter-spacing: 0.02em; }
+.care-num em { font-style: normal; font-size: 13px; }
+.care-urgent { margin: 0; font-family: "Noto Sans TC", var(--font); font-size: 15px; color: #c7d9df; }
+.care-urgent a { color: #86e0d6; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 17px; }
+.care-desk { display: none; margin: -4px 0 0; font-size: 13px; color: #a9c1ca; font-family: "Noto Sans TC", var(--font); }
+@media (hover: hover) and (pointer: fine) { .care-desk { display: block; } .care-num em { display: none; } }
+.care-actions { display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+.care-actions .btn { flex: 1 1 140px; justify-content: center; }
+.modal-card.care-card { background: #0b1620; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.care-link { align-self: flex-start; border: 0; background: none; padding: 10px 0; min-height: 44px; font-size: 13px; color: #a9c1ca; text-decoration: underline; text-underline-offset: 3px; }
+.res-care { margin: 0; font-size: 13px; }
+.res-care a { color: #a9c1ca; text-underline-offset: 3px; }

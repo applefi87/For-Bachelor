@@ -499,6 +499,17 @@
     }, 280);
   };
 
+  /** 專線：從「更多」打開。和儀式裡的危機畫面是同一個元件 */
+  UI.careModal = () => {
+    UI.showModal(
+      (card, close) => {
+        card.innerHTML = MJ.Feelings.careHTML('menu') + '<div class="care-actions"><button class="btn ghost" data-r="ok">關上</button></div>';
+        card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
+      },
+      { cls: 'care-card' }
+    );
+  };
+
   UI.confirm = (o) =>
     new Promise((resolve) => {
       let answered = false;

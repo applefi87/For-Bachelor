@@ -81,6 +81,7 @@
     stopAnim();
     d.step = step;
     const idx = stepIndex(step);
+    $('ritualSteps').hidden = step === 'care';
     $('ritualSteps').innerHTML = STEPS.map(
       ([id, name], i) => '<li class="' + (i < idx ? 'done' : i === idx ? 'on' : '') + '"' + (i === idx ? ' aria-current="step"' : '') + '><i></i><span>' + name + '</span></li>'
     ).join('');
@@ -102,13 +103,18 @@
       '<textarea id="rRaw" class="field" rows="5" maxlength="600" data-focus placeholder="' + esc(U.pick(F.POUR_PLACEHOLDERS)) + '" aria-label="現在心裡有什麼">' + esc(d.raw) + '</textarea>' +
       '<label class="check"><input type="checkbox" id="rKeepRaw"' + (d.keepRaw ? ' checked' : '') + '><i aria-hidden="true"></i><span>把這段文字留下來<small>不勾的話，結束時它會溶進海裡，不會被保存</small></span></label>' +
       '<div class="btn-row between"><button class="btn ghost" id="rSkip">不寫，直接選感覺</button><button class="btn" id="rNext">下一步</button></div>' +
-      (d.resume ? '' : '<button class="link-btn" id="rQuick">' + icon('release', 'i') + '只想倒出來，不整理了</button>');
+      (d.resume ? '' : '<button class="link-btn" id="rQuick">' + icon('release', 'i') + '只想倒出來，不整理了</button>') +
+      '<button class="care-link" id="rCareLink">撐不住的時候 → 專線</button>';
     const next = () => {
       d.raw = $('rRaw').value.trim();
       d.keepRaw = $('rKeepRaw').checked;
-      if (F.isCrisis(d.raw)) R.show('care', 'name');
+      if (F.isCrisis(d.raw)) R.show('care', { next: 'name', back: 'pour' });
       else R.show('name');
     };
+    $('rCareLink').addEventListener('click', () => {
+      d.raw = $('rRaw').value;
+      R.show('care', { mode: 'menu', next: 'pour', back: 'pour' });
+    });
     $('rNext').addEventListener('click', next);
     $('rSkip').addEventListener('click', () => {
       d.raw = '';
@@ -131,24 +137,26 @@
         d.turn = 'release';
         d.text = '';
         d.quick = true;
-        if (F.isCrisis(d.raw)) R.show('care', 'finish');
+        if (F.isCrisis(d.raw)) R.show('care', { next: 'finish', back: 'pour' });
         else R.finish();
       });
   };
 
-  /* 真的撐不住的時候 */
-  VIEW.care = (body, next) => {
-    const back = next === 'again' ? 'do' : 'pour';
+  /*
+   * 真的撐不住的時候：全站唯一不套美術風格的畫面。號碼可以直接撥打；
+   * 兩個按鈕一樣輕重，不擋、不倒數，也不暗示「把字刪掉就好」。
+   * 文字裡出現自傷的字時，這份紀錄之後不給光、不讓字散開、不重現原文（見 Game.commitEntry）。
+   */
+  VIEW.care = (body, o = {}) => {
+    const mode = o.mode || 'text';
+    if (mode === 'text') d.crisis = true;
     body.innerHTML =
-      '<h2 class="r-title">謝謝你願意寫出來</h2>' +
-      '<p class="r-sub">如果你現在有傷害自己的念頭，請讓一個真的人陪你一下。打電話過去，不用準備好要說什麼。</p>' +
-      '<ul class="hotlines">' +
-      F.HOTLINES.map(([n, num, note]) => '<li><span>' + n + (note ? '<small>' + note + '</small>' : '') + '</span><b class="num">' + num + '</b></li>').join('') +
-      '</ul>' +
-      '<p class="r-note">你不用一個人撐著。如果有立即的危險，請撥 119 或 110。</p>' +
-      '<div class="btn-row between"><button class="btn ghost" id="rCareBack">回去改一下</button><button class="btn" id="rCareGo">我知道了，繼續</button></div>';
-    $('rCareBack').addEventListener('click', () => R.show(back));
-    $('rCareGo').addEventListener('click', () => (next === 'finish' ? R.finish() : R.show(next || 'name')));
+      F.careHTML(mode) +
+      '<div class="care-actions"><button class="btn ghost" id="rCareBack">回到剛才的地方</button>' +
+      (mode === 'text' ? '<button class="btn ghost" id="rCareGo">先繼續</button>' : '') + '</div>';
+    $('rCareBack').addEventListener('click', () => R.show(o.back || 'pour'));
+    const go = $('rCareGo');
+    if (go) go.addEventListener('click', () => (o.next === 'finish' ? R.finish() : R.show(o.next || 'name')));
   };
 
   /* ---------- 2. 取名字 ---------- */
@@ -244,7 +252,10 @@
         ctx.lineWidth = k ? 1 : 1.8;
         ctx.beginPath();
         for (let x = 0; x <= w; x += 4) {
-          const y = h / 2 + Math.sin(x * 0.03 + t * (1.2 + i * 0.18) + k * 1.4) * amp * (k ? 0.6 : 1) + Math.sin(x * 0.071 - t * 0.9) * amp * 0.2;
+          // 浪的高度跟著強度（讓人覺得被看見），速度固定在約 0.1 Hz（十秒一個起伏），不隨強度變快；
+          // 系統設定「減少動態效果」時，浪停住
+          const tt = U.reducedMotion ? 0 : t * 0.63;
+          const y = h / 2 + Math.sin(x * 0.03 + tt + k * 1.4) * amp * (k ? 0.6 : 1) + Math.sin(x * 0.071 - tt * 0.7) * amp * 0.2;
           if (x === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
@@ -388,7 +399,7 @@
       d.text = text ? text.value.trim() : '';
       if (d.turn === 'thank') d.tell = !!($('rTell') && $('rTell').checked);
       // 不只第一步：任何一個寫字的地方出現傷害自己的念頭，都先停下來
-      if (F.isCrisis(d.text)) R.show('care', 'again');
+      if (F.isCrisis(d.text)) R.show('care', { next: 'again', back: 'do' });
       else R.show('again');
     });
 
@@ -561,6 +572,7 @@
       }
       if (wave !== lastWave) {
         lastWave = wave;
+        d.waves = Math.max(d.waves || 1, wave);
         const c = $('rSurfCount');
         if (c) c.textContent = wave < 3 ? '第 ' + (wave + 1) + ' 道浪' : '它還在的話，也沒關係。';
         if (wave >= 1) {

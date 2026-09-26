@@ -343,9 +343,10 @@
       ['photo', 'camera', '拍照', '把現在的水族箱拍下來'],
       ['roster', 'jelly', '水母名冊', '住在這裡的、還在長大的、回到大海的'],
       ['ach', 'trophy', '成就', achDone + ' / ' + Game.ACH.length + ' 個'],
-      ['diary', 'diary', '心情日記', '連續 ' + (s.daily.streak || 0) + ' 天'],
+      ['diary', 'diary', '心情日記', '這個月來過 ' + Game.daysThisMonth() + ' 天'],
       ['settings', 'settings', '聲音與設定', '音樂、音效、存檔'],
       ['about', 'info', '關於海月', '怎麼玩、這裡是怎麼做出來的'],
+      ['care', 'heart', '需要找人說話', '專線電話，都有真的人接'],
     ];
     let html = '<div class="sleep-card"><div class="sleep-head">' + icon('moon', 'i big') + '<div><b>晚安模式</b><small>畫面變暗，音樂在你選的時間內慢慢變小。</small></div></div><div class="seg">';
     for (const m of [15, 30, 60]) html += '<button class="seg-btn" data-sleep="' + m + '">' + m + ' 分鐘</button>';
@@ -368,7 +369,8 @@
         if (id === 'photo') {
           UI.closeSheet();
           Game.startPhoto();
-        } else UI.openSheet(id, null, { back: 'more' });
+        } else if (id === 'care') UI.careModal();
+        else UI.openSheet(id, null, { back: 'more' });
       })
     );
     return '更多';

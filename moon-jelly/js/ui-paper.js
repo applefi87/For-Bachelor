@@ -26,7 +26,7 @@
       ['shape', '傘形', Gn.SHAPE_IDS.length, 'shape:'],
       ['pattern', '花紋', Gn.PATTERN_IDS.length, 'pattern:'],
       ['special', '體質', Gn.SPECIAL_IDS.length, 'special:'],
-      ['eco', '生態', F.SPECIES_IDS.length, 'eco'],
+      ['eco', '生態', 0, 'eco'],
       ['life', '一生', 0, ''],
     ];
     const count = (prefix) => (prefix === 'eco' ? Object.keys(s.eco.species).length : Object.keys(s.codex).filter((k) => k.startsWith(prefix)).length);
@@ -112,7 +112,7 @@
     }
     html += '</div><div class="legend">';
     for (const m of C.moods) html += '<span><i style="background:' + m.color + '"></i>' + m.name + '</span>';
-    html += '</div><dl class="facts two"><div><dt>連續</dt><dd>' + (s.daily.streak || 0) + ' 天</dd></div><div><dt>最長紀錄</dt><dd>' + (s.daily.best || 0) + ' 天</dd></div><div><dt>拆過的信</dt><dd>' + s.stats.letters + ' 封</dd></div><div><dt>記下的心情</dt><dd>' + (s.stats.rituals || 0) + ' 份</dd></div></dl>';
+    html += '</div><dl class="facts two"><div><dt>這個月來過</dt><dd>' + Game.daysThisMonth() + ' 天</dd></div><div><dt>一共來過</dt><dd>' + Object.keys(s.visits || {}).length + ' 天</dd></div><div><dt>拆過的信</dt><dd>' + s.stats.letters + ' 封</dd></div><div><dt>記下的心情</dt><dd>' + (s.stats.rituals || 0) + ' 份</dd></div></dl>';
     body.innerHTML = html;
     return '心情日記';
   };
@@ -201,9 +201,9 @@
             const r = Game.claimLetter(b.dataset.mood);
             if (!r) return close();
             A.discover();
-            let h = '<div class="letter"><p class="letter-reply">' + esc(r.reply) + '</p><p class="letter-main">' + esc(r.letter) + '</p><p class="letter-sign">— 海</p></div>';
+            let h = '<div class="letter"><p class="letter-reply">' + esc(r.reply) + '</p><p class="letter-main">' + esc(r.letter) + '</p></div>';
             h += '<div class="fact"><span>今天的水母小知識</span>' + esc(r.fact) + '</div>';
-            h += '<p class="gift"><span class="light-dot sm"></span>+' + r.reward + ' 光・' + r.gifts.join('・') + '・連續 ' + r.streak + ' 天</p>';
+            h += '<p class="gift"><span class="light-dot sm"></span>+' + r.reward + ' 光・' + r.gifts.join('・') + '</p>';
             h += '<div class="btn-row center"><button class="btn">收下</button></div>';
             card.innerHTML = h;
             card.querySelector('.btn').addEventListener('click', () => close());
@@ -270,7 +270,7 @@
     let html = '<div class="entry-card" style="--h:' + fam.hue + ';--s:' + Math.round(Math.max(0.3, fam.sat) * 100) + '%">';
     html += '<div class="entry-words">' + e.words.map((w) => '「' + esc(w) + '」').join('') + '</div>';
     html += '<div class="entry-meta">' + timeStr(e.t) + '・' + wave + '</div>';
-    if (e.raw) html += '<p class="entry-raw">' + esc(e.raw) + '</p>';
+    if (e.raw && !e.crisis) html += '<p class="entry-raw">' + esc(e.raw) + '</p>';
     html += '</div>';
     return html;
   };
@@ -278,14 +278,15 @@
   UI.ecoCodex = () => {
     const sp = Game.state.eco.species;
     let html = '<p class="lede">每一份心情一開始都是一隻幼生。你選擇怎麼陪它，決定它長成哪一種生物。牠們在海裡，彼此有關。</p>';
+    // 只列出遇見過的：心情長出來的生物不算完成度，也不留空格暗示「還缺哪一種陪法」
+    const met = F.SPECIES_IDS.filter((id) => sp[id]);
+    if (!met.length) html += '<div class="empty">還沒有。每一份心情，都會長成一種生物。</div>';
     html += '<ul class="rows codex-rows eco-rows">';
-    for (const id of F.SPECIES_IDS) {
+    for (const id of met) {
       const d = F.SPECIES[id];
-      const got = sp[id];
-      html += '<li class="row' + (got ? '' : ' locked') + '"><span class="eco-badge" style="--h:' + SPECIES_HUE[id] + '">' + icon(SPECIES_ICON[id]) + '</span>';
-      html += '<div class="row-main"><div class="row-title">' + (got ? d.name : '？？？') + '<small>' + esc(d.from) + '</small></div>';
-      if (got) html += '<div class="row-sub">' + esc(d.fact) + '</div><div class="row-sub link-line">' + esc(d.link) + '</div>';
-      else html += '<div class="row-sub clue">從「' + esc(d.from) + '」長出來。</div>';
+      html += '<li class="row"><span class="eco-badge" style="--h:' + SPECIES_HUE[id] + '">' + icon(SPECIES_ICON[id]) + '</span>';
+      html += '<div class="row-main"><div class="row-title">' + d.name + '<small>' + esc(d.from) + '</small></div>';
+      html += '<div class="row-sub">' + esc(d.fact) + '</div><div class="row-sub link-line">' + esc(d.link) + '</div>';
       html += '</div></li>';
     }
     html += '</ul>';
@@ -379,22 +380,23 @@
       if (top.length) html += '<p>最常出現的是' + top.map((w) => '「' + esc(w) + '」').join('') + '。</p>';
       const turns = Array.from(new Set(week.map((e) => e.turn).filter((t) => F.TURNS[t])));
       if (turns.length) html += '<p>你用了 ' + turns.length + ' 種方式陪它們：</p><div class="chips center">' + turns.map((t) => turnChip(t)).join('') + '</div>';
-      const drops = week.filter((e) => !F.isPositive(e.fam) && e.i0 != null && e.i1 != null && e.i1 < e.i0 && F.TURNS[e.turn]).sort((a, b) => b.i0 - b.i1 - (a.i0 - a.i1));
-      if (drops.length) {
-        const e = drops[0];
-        html += '<p>浪退最多的一次，是 ' + md(e.t) + ' 的「' + esc(e.words[0]) + '」：從 ' + e.i0 + ' 到 ' + e.i1 + '，那時候你選了「' + F.TURNS[e.turn].name + '」。</p>';
+      const measured = week.filter((e) => !F.isPositive(e.fam) && e.i0 != null && e.i1 != null && F.TURNS[e.turn]);
+      if (measured.length) {
+        const down = measured.filter((e) => e.i1 < e.i0).length;
+        const same = measured.filter((e) => e.i1 === e.i0).length;
+        html += '<p>陪完之後：變小 ' + down + ' 次、沒變 ' + same + ' 次、變大 ' + (measured.length - down - same) + ' 次。</p>';
       }
       const done = s.entries.filter((e) => e.step && e.step.status === 'done' && Date.now() - (e.step.doneAt || 0) < 7 * 86400000);
       if (done.length) html += '<p>你做到了：' + done.slice(-4).map((e) => '「' + esc(e.step.what) + '」').join('') + '。</p>';
       const pos = week.filter((e) => F.isPositive(e.fam)).length;
       if (pos) html += '<p>其中有 ' + pos + ' 份，是舒服的感覺。</p>';
-      const said = week.filter((e) => e.text && ['reframe', 'kind', 'savor', 'thank', 'keep', 'need'].includes(e.turn)).slice(-3);
+      const said = week.filter((e) => !e.crisis && e.text && ['reframe', 'kind', 'savor', 'thank', 'keep', 'need'].includes(e.turn)).slice(-3);
       if (said.length) {
         html += '<p>這週你寫給自己的話：</p>';
         for (const e of said) html += '<blockquote class="said"><span>' + md(e.t) + '・' + F.TURNS[e.turn].name + '</span>' + esc(e.text) + '</blockquote>';
       }
     }
-    html += '<p class="letter-sign">— 海</p></div><div class="btn-row center"><button class="btn ghost" data-r="tides">打開潮汐圖</button><button class="btn" data-r="ok">收好</button></div>';
+    html += '</div><div class="btn-row center"><button class="btn ghost" data-r="tides">打開潮汐圖</button><button class="btn" data-r="ok">收好</button></div>';
     UI.showModal(
       (card, close) => {
         card.innerHTML = html;

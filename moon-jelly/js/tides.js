@@ -134,7 +134,7 @@
     }
 
     /* 7. 你寫給自己的話 */
-    const said = all.filter((e) => e.text && ['reframe', 'kind', 'savor', 'thank', 'keep', 'need'].includes(e.turn)).slice(-12).reverse();
+    const said = all.filter((e) => !e.crisis && e.text && ['reframe', 'kind', 'savor', 'thank', 'keep', 'need'].includes(e.turn)).slice(-12).reverse();
     if (said.length) {
       html += '<h3 class="sub-h">你寫給自己的話</h3><ul class="said-list">';
       for (const e of said) {
