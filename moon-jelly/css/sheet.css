@@ -149,7 +149,9 @@ button.row:active { background: var(--rule); }
 /* 「更多」的選單列：名稱和說明排在同一行，一打開就看得到最後一列 */
 .menu-row .row-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; }
 
-.nav-row:hover .row-title { text-decoration: underline 1px; text-underline-offset: 0.3em; text-decoration-color: var(--rule-strong); }
+@media (hover: hover) {
+  .nav-row:hover .row-title { text-decoration: underline 1px; text-underline-offset: 0.3em; text-decoration-color: var(--rule-strong); }
+}
 
 /* ---------------- 水母名片 ---------------- */
 

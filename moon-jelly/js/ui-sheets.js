@@ -105,7 +105,7 @@
       for (const k of ['fullness', 'happy', 'growth']) setText(body.querySelector('[data-live="' + k + '"]'), String(Math.round(U.clamp(j[k], 0, 1) * 100)));
       if (!j.visitor) {
         const br = Game.breedable(j);
-        setText(body.querySelector('[data-live="breed"]'), br.ok ? '可以' : String(br.reason).replace(/[。！!]+$/, ''));
+        setText(body.querySelector('[data-live="breed"]'), br.ok ? '可以' : String(br.reason).replace(/[\u3002\uff01!]+$/, ''));
         const mate = body.querySelector('[data-a="mate"]');
         if (mate && mate.hidden === br.ok) mate.hidden = !br.ok;
       }
@@ -137,7 +137,7 @@
     html += '<canvas class="card-portrait" id="cardCanvas" width="' + size + '" height="' + size + '" aria-label="' + esc(j.name) + '的樣子"></canvas>';
     html += '<div class="card-id">';
     html += '<p class="card-sp">海月水母　<span class="latin">Aurelia aurita</span></p>';
-    html += '<p class="card-line">' + (visitor ? '野生訪客' : '<span data-bind="stage">' + j.stage + '</span>') + '</p>';
+    html += '<p class="card-line">' + (visitor ? j.stage : '<span data-bind="stage">' + j.stage + '</span>') + '</p>';
     html += '<p class="card-line">' + d.rarity + '　' + num(d.stars + '/5') + '</p>';
     html += '<p class="card-traits">' + swatch(g) + traitList(g).join('　') + '</p>';
     html += '</div></div>';
