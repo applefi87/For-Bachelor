@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/sea.css">
 <link rel="stylesheet" href="css/sheet.css">
+<link rel="stylesheet" href="css/callout.css">
 <link rel="stylesheet" href="css/paper.css">
 <link rel="stylesheet" href="css/ritual.css">
 </head>
@@ -47,6 +48,24 @@
 </nav>
 
 <div id="toasts" class="toasts" aria-live="polite"></div>
+
+<svg id="coLeader" class="co-leader" aria-hidden="true"><circle id="coRing" r="0"></circle><line id="coLine"></line><circle id="coDot" r="2.5"></circle></svg>
+<aside id="callout" class="callout side-b" role="dialog" aria-labelledby="coName" hidden>
+  <button class="co-grip" id="coGrip" type="button" aria-label="看詳細"></button>
+  <header class="co-head">
+    <div id="coPic" class="co-pic" aria-hidden="true"></div>
+    <div class="co-titles">
+      <div id="coKicker" class="co-kicker"></div>
+      <h2 id="coName" class="co-name"></h2>
+    </div>
+    <div class="co-nav">
+      <button class="icon-btn sm" id="coPrev" aria-label="上一隻" data-icon="back"></button>
+      <button class="icon-btn sm" id="coNext" aria-label="下一隻" data-icon="next"></button>
+      <button class="icon-btn sm" id="coClose" aria-label="關上" data-icon="close"></button>
+    </div>
+  </header>
+  <div id="coBody" class="co-body"></div>
+</aside>
 
 <aside id="sheet" class="sheet" role="dialog" aria-label="">
   <header class="sheet-head">
@@ -128,6 +147,7 @@
 <script src="js/ui-sheets.js"></script>
 <script src="js/ui-paper.js"></script>
 <script src="js/ui-eco.js"></script>
+<script src="js/callout.js"></script>
 <script src="js/ritual.js"></script>
 <script src="js/tides.js"></script>
 <script src="js/game.js"></script>

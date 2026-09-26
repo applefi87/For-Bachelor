@@ -409,32 +409,15 @@
       if (j.id === Game.selectedId) selected = j;
       else j.draw(ctx, Game);
     }
-    if (selected) {
-      selected.draw(ctx, Game);
-      Game.drawSelection(ctx, selected);
-    }
+    // 說明牌開著的那隻畫在最上面；圈和細線由說明牌自己畫（callout.js）
+    if (selected) selected.draw(ctx, Game);
     Game.fx.draw(ctx);
     Game.eco.drawTop(ctx);
     Game.drawSwarm(ctx);
     Game.drawStar(ctx);
-    if (Game.highlight && Game.t < Game.highlight.until) Game.drawHighlight(ctx, Game.highlight.c);
     w.drawFront(ctx);
     const label = Game.hoverJelly || (Game.pointer.target && Game.pointer.target.kind === 'jelly' && Game.pointer.moved > 6 ? Game.pointer.target.j : null);
-    if (label && Game.mode === 'normal') Game.drawLabel(ctx, label);
-  };
-
-  Game.drawSelection = (ctx, j) => {
-    const [cx, cy] = j.center();
-    const r = Math.max(j.bellW, j.bellH) * 0.75 + 10;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(240,248,250,0.4)';
-    ctx.setLineDash([3, 6]);
-    ctx.lineDashOffset = -Game.t * 8;
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, U.TAU);
-    ctx.stroke();
-    ctx.restore();
+    if (label && Game.mode === 'normal' && label.id !== Game.selectedId) Game.drawLabel(ctx, label);
   };
 
   Game.drawLabel = (ctx, j) => {
@@ -505,6 +488,8 @@
         P.target = { kind: 'eco', c: eco };
         return;
       }
+      // 點到水、水螅體、瓶子或裝飾：說明牌收起來
+      MJ.UI.callout.close();
       const p = Game.polyps.find((q) => q.hit(x, y, Game.world));
       if (p) {
         P.target = { kind: 'polyp', p };
@@ -1823,23 +1808,6 @@
       A.chime(0);
     } else A.click();
     MJ.UI.openCreature(c);
-  };
-
-  Game.drawHighlight = (ctx, c) => {
-    let pos = null;
-    if (c.center) pos = c.center();
-    else pos = Game.creaturePos(c);
-    const [x, y] = pos;
-    const r = 40 * Game.unit + Math.sin(Game.t * 4) * 4;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,240,200,0.7)';
-    ctx.setLineDash([3, 6]);
-    ctx.lineDashOffset = -Game.t * 10;
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, U.TAU);
-    ctx.stroke();
-    ctx.restore();
   };
 
   /* ---------- 一件小事的後續 ---------- */

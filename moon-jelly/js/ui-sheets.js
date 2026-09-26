@@ -1,4 +1,4 @@
-/* 海月水母館 — 海裡的抽屜：水母名片、找伴侶、商店、呼吸、更多、名冊、成就、設定、關於 */
+/* 海月水母館 — 海裡的抽屜：找伴侶、商店、呼吸、更多、名冊、成就、設定、關於（水母名片在 callout.js） */
 (function (MJ) {
   'use strict';
 
@@ -7,97 +7,6 @@
   const { U, Gn, C, A, F, esc, icon, $, noteName, dateStr, starsHTML, colorCss, portraitImg, traitChips, timeStr, famChip, turnChip, SPECIES_ICON, SPECIES_HUE, KIND_SPECIES } = UI.h;
   let Game = null;
   UI.onInit((g) => (Game = g));
-
-  /* ---------- 水母名片 ---------- */
-  RENDER.jelly = (body, j) => {
-    const g = j.genes;
-    const d = Gn.describe(g);
-    const size = 168;
-    const visitor = j.visitor;
-    let html = '<div class="card-hero">';
-    html += '<canvas class="card-portrait" id="cardCanvas" width="' + size + '" height="' + size + '" aria-label="' + esc(j.name) + '的樣子"></canvas>';
-    html += '<div class="card-id">' + starsHTML(d.stars) + '<div class="rarity">' + d.rarity + '・<span data-bind="stage">' + j.stage + '</span></div>';
-    html += '<div class="chips">' + traitChips(g) + '</div></div></div>';
-
-    if (visitor) {
-      const left = Math.max(0, (j.leaveAt || 0) - Game.t);
-      html += '<p class="lede">從外面的海游進來參觀的野生水母。大約 ' + U.duration(left) + '後就會離開。</p>';
-      const full = Game.residentCount() >= Game.capacity();
-      html += '<div class="actions"><button class="btn" data-a="adopt"' + (full ? ' disabled' : '') + '>邀請牠住下來</button></div>';
-      if (full) html += '<p class="note">水族箱滿了。升級水族箱，或讓一隻水母回到大海，就能留下牠。</p>';
-    } else {
-      html += '<div class="meters">';
-      html += '<div class="meter"><span>飽足</span><div class="bar"><i data-bind="fullness"></i></div></div>';
-      html += '<div class="meter"><span>心情</span><div class="bar bar-happy"><i data-bind="happy"></i></div></div>';
-      if (!j.adult) html += '<div class="meter"><span>成長</span><div class="bar bar-grow"><i data-bind="growth"></i></div></div>';
-      html += '</div>';
-      html += '<dl class="facts">';
-      html += '<div><dt>親密度</dt><dd><span data-bind="affection">' + Math.floor(j.affection) + '</span></dd></div>';
-      html += '<div><dt>吃掉的心情</dt><dd>' + j.worryFed + ' 份</dd></div>';
-      html += '<div><dt>牠的音</dt><dd>' + noteName(g) + '</dd></div>';
-      html += '<div><dt>觸手</dt><dd>' + g.tentacles + ' 條</dd></div>';
-      html += '<div><dt>來到這裡</dt><dd>' + dateStr(j.born) + '</dd></div>';
-      if (j.origin) html += '<div><dt>來自</dt><dd>' + dateStr(j.origin.t) + ' 的「' + esc(j.origin.word) + '」</dd></div>';
-      else html += '<div><dt>父母</dt><dd>' + (j.parents ? esc(j.parents.join(' × ')) : '來自大海') + '</dd></div>';
-      html += '</dl>';
-      const br = Game.breedable(j);
-      html += '<div class="actions">';
-      html += '<button class="btn" data-a="pet">' + icon('heart') + '摸摸</button>';
-      html += '<button class="btn" data-a="mate" data-bind="mateBtn"' + (br.ok ? '' : ' disabled') + '>找伴侶</button>';
-      html += '<button class="btn ghost" data-a="rename">改名</button>';
-      html += '<button class="btn ghost quiet" data-a="release">回到大海</button>';
-      html += '</div>';
-      html += '<p class="note" data-bind="breedNote"></p>';
-      if (j.origin) html += '<p class="note">由心情變成的水母不佔水族箱的名額，也不替你賺光。牠只是陪著。</p>';
-    }
-    body.innerHTML = html;
-
-    const canvas = $('cardCanvas');
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    const env = MJ.Jelly.portraitEnv(g, size);
-    env.world.theme = { glow: 1 };
-    const pj = MJ.Jelly.posed(g, j.growth, env);
-    for (let i = 0; i < 40; i++) pj.animate(1 / 30, env);
-    UI.cardLive = { jelly: pj, env, canvas, ctx: canvas.getContext('2d'), dpr, size };
-
-    const els = {};
-    body.querySelectorAll('[data-bind]').forEach((el) => (els[el.dataset.bind] = el));
-    UI.bound = { jelly: j, els, wasAdult: j.adult, visitor: j.visitor };
-    UI.refreshBound();
-
-    body.querySelector('.actions').addEventListener('click', async (e) => {
-      const b = e.target.closest('button[data-a]');
-      if (!b) return;
-      const a = b.dataset.a;
-      if (a === 'pet') Game.petButton(j.id);
-      else if (a === 'adopt') {
-        Game.adoptVisitor(j.id);
-        UI.openSheet('jelly', j);
-      } else if (a === 'mate') UI.openSheet('mate', j, { back: null });
-      else if (a === 'rename') {
-        const name = await UI.prompt({ title: '幫牠取個新名字', value: j.name, max: 12 });
-        if (name) {
-          Game.rename(j.id, name);
-          UI.openSheet('jelly', j);
-        }
-      } else if (a === 'release') {
-        const ok = await UI.confirm({
-          title: '要讓「' + j.name + '」回到大海嗎？',
-          text: '牠會慢慢游向海面，回到外面的海。名字會留在名冊的「回到大海的孩子」裡。',
-          img: UI.portrait(g, j.growth, 120),
-          ok: '讓牠回去',
-          cancel: '再想想',
-        });
-        if (ok) {
-          UI.closeSheet();
-          Game.release(j.id);
-        }
-      }
-    });
-    return visitor ? '野生的訪客' : j.name;
-  };
 
   /* ---------- 找伴侶 ---------- */
   RENDER.mate = (body, j) => {
