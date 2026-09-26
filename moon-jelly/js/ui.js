@@ -283,6 +283,58 @@
     }, life);
   };
 
+  /**
+   * 生物說明牌（DESIGN.md §6.4、§12）。這裡是暫時的替代版：先用對話框顯示同樣的內容，
+   * 之後由「海的介面」換成貼在生物旁邊、有指示線的牌子。
+   * opts = { target, no, time, status, words, line, latin, rows: [[k, v]], note, question, care, actions: [{ label, primary, onClick }] }
+   * 回傳 { close() }。同一時間只有一塊，新的會收掉舊的。
+   */
+  UI.label = (opts = {}) => {
+    if (UI.currentLabel) UI.currentLabel.close();
+    let closeFn = null;
+    let closed = false;
+    const handle = {
+      close() {
+        if (closed) return;
+        closed = true;
+        if (UI.currentLabel === handle) UI.currentLabel = null;
+        if (closeFn) closeFn();
+      },
+    };
+    UI.currentLabel = handle;
+    UI.showModal(
+      (card, close) => {
+        closeFn = close;
+        let html = '<div class="lb-head">';
+        if (opts.no != null) html += '<span class="num">No. ' + esc(opts.no) + '</span>';
+        if (opts.time) html += '<span class="num">' + esc(opts.time) + '</span>';
+        if (opts.status) html += '<span class="lb-status">' + esc(opts.status) + '</span>';
+        html += '</div>';
+        if (opts.words) html += '<h2 class="lb-words">' + esc(opts.words) + '</h2>';
+        if (opts.line) html += '<p class="lb-line">' + esc(opts.line) + (opts.latin ? '　<i class="latin">' + esc(opts.latin) + '</i>' : '') + '</p>';
+        if (opts.rows && opts.rows.length) html += '<dl class="kv">' + opts.rows.map((r) => '<div><dt>' + esc(r[0]) + '</dt><dd>' + r[1] + '</dd></div>').join('') + '</dl>';
+        if (opts.note) html += '<p class="lb-note">' + esc(opts.note) + '</p>';
+        if (opts.question) html += '<p class="lb-q">' + esc(opts.question) + '</p>';
+        if (opts.care) html += opts.care;
+        const acts = opts.actions && opts.actions.length ? opts.actions : [{ label: '收起', primary: false }];
+        html += '<div class="btn-row">' + acts.map((a, i) => '<button class="' + (a.primary ? 'btn' : 'btn-2') + '" data-lb="' + i + '">' + esc(a.label) + '</button>').join('') + '</div>';
+        card.innerHTML = html;
+        card.querySelectorAll('[data-lb]').forEach((b) =>
+          b.addEventListener('click', () => {
+            const a = acts[+b.dataset.lb];
+            handle.close();
+            if (a.onClick) a.onClick();
+          })
+        );
+      },
+      { cls: 'label-card', onClose: () => { closed = true; if (UI.currentLabel === handle) UI.currentLabel = null; } }
+    );
+    return handle;
+  };
+
+  /** 短版說明牌：跟水族箱裡某個東西有關的事件。沒有 target 時等於 UI.toast。暫時都走 toast。 */
+  UI.note = (text, o = {}) => UI.toast(text, 'soft', o.sub || null);
+
   UI.showHint = (text) => {
     const h = UI.el.hint;
     if (!text || UI.hintDismissed) {

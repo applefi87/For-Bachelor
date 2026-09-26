@@ -1,4 +1,4 @@
-/* 海月水母館 — 紙：圖鑑、心情日記、歡迎、回來、海的來信、新生命、紀錄卡、珍珠、每週回顧 */
+/* 海月水母館 — 紙：圖鑑、心情日記、海的來信、瓶中紙條、紀錄卡、珍珠、每週回顧、成就 */
 (function (MJ) {
   'use strict';
 
@@ -118,75 +118,6 @@
   };
   RENDER.diary.back = 'more';
 
-  UI.welcomeModal = () => {
-    UI.showModal((card, close) => {
-      card.innerHTML =
-        '<h2 class="m-title">歡迎來到海月水母館</h2>' +
-        '<p class="m-text">這裡有三隻水母，和一個快要孵化的水螅體。從今天開始，牠們就交給你了。</p>' +
-        '<ul class="how"><li><b>點水</b>撒下浮游生物</li><li><b>按住水母滑動</b>摸摸牠</li><li><b>點水母</b>看牠的名片</li><li><b>按「心情」</b>替感覺取名字，看它長成什麼生物</li></ul>' +
-        '<p class="m-foot">不用急。水母們在這裡漂了很久，也會一直在這裡。</p>' +
-        '<div class="btn-row center"><button class="btn ghost" data-w="feel">' + icon('heartsea') + '我現在有感覺</button><button class="btn" data-w="ok">好，我知道了</button></div>';
-      card.querySelector('[data-w="ok"]').addEventListener('click', () => close());
-      card.querySelector('[data-w="feel"]').addEventListener('click', () => {
-        close();
-        setTimeout(() => MJ.Ritual.start(), 300);
-      });
-    });
-  };
-
-  /** 回來的時候：離開時發生的事、該問的小事、今天的信、這週的回顧，合成一張卡 */
-  UI.welcomeBack = (o) => {
-    let after = null;
-    UI.showModal(
-      (card, close) => {
-        let html = '<h2 class="m-title">歡迎回來</h2>';
-        const off = o.offline;
-        if (off) {
-          html += '<p class="m-text">你離開了 ' + U.duration(off.sec) + '。</p><ul class="how">';
-          if (off.gain > 0) html += '<li>水母們一共發了 <b>' + U.fmt(off.gain) + '</b> 光</li>';
-          if (off.born.length) html += '<li><b>' + off.born.map((j) => '「' + esc(j.name) + '」').join('、') + '</b> 出生了</li>';
-          if (off.grown) html += '<li>有 <b>' + off.grown + '</b> 隻小水母長大了</li>';
-          html += '</ul>';
-          if (off.born.length) html += '<div class="born-row">' + off.born.map((j) => portraitImg(j.genes, j.growth, 72, 'portrait sm')).join('') + '</div>';
-        }
-        if (o.steps.length) {
-          html += '<div class="wb-steps"><div class="wb-h">' + icon('step') + '之前想做的小事，後來呢？怎麼樣都可以。</div>';
-          for (const e of o.steps) {
-            html += '<div class="wb-step" data-id="' + e.id + '"><b>' + esc(e.step.what) + '</b><span class="wb-btns">' +
-              '<button class="btn sm ghost" data-s="dropped">不需要了</button><button class="btn sm ghost" data-s="later">還沒</button><button class="btn sm" data-s="done">做到了</button></span></div>';
-          }
-          html += '</div>';
-        }
-        html += '<div class="wb-actions">';
-        if (o.letter) html += '<button class="btn" data-w="letter">' + icon('letter') + '拆今天的信</button>';
-        if (o.recap) html += '<button class="btn ghost" data-w="recap">' + icon('tides') + '這一週的回顧</button>';
-        html += '<button class="btn ghost" data-w="feel">' + icon('heartsea') + '我現在有感覺</button>';
-        html += '</div><div class="btn-row center"><button class="btn ghost quiet" data-w="ok">先看看水母</button></div>';
-        card.innerHTML = html;
-        const said = { done: '做到了。海龜出發去旅行了。', later: '好，不急。', dropped: '好，先放下。' };
-        card.querySelectorAll('.wb-step').forEach((row) =>
-          row.querySelectorAll('[data-s]').forEach((b) =>
-            b.addEventListener('click', () => {
-              const st = b.dataset.s;
-              row.querySelector('.wb-btns').innerHTML = '<small>' + said[st] + '</small>';
-              Game.setStep(row.dataset.id, st, true);
-            })
-          )
-        );
-        card.querySelectorAll('[data-w]').forEach((b) =>
-          b.addEventListener('click', () => {
-            const w = b.dataset.w;
-            if (w === 'letter') after = () => UI.letterModal();
-            else if (w === 'recap') after = () => UI.recapModal();
-            else if (w === 'feel') after = () => MJ.Ritual.start();
-            close();
-          })
-        );
-      },
-      { cls: 'wide', onClose: () => after && setTimeout(after, 60) }
-    );
-  };
-
   UI.letterModal = () => {
     if (!Game.letterDue()) return;
     UI.showModal(
@@ -225,41 +156,6 @@
       },
       { cls: 'paper' }
     );
-  };
-
-  const newbornCard = (title, lede, j, found) => {
-    const d = Gn.describe(j.genes);
-    let html = '<h2 class="m-title">' + title + '</h2><img class="portrait lg" src="' + UI.portrait(j.genes, Math.max(j.growth, 0.6), 160) + '" alt="">';
-    html += '<div class="nb-name">' + esc(j.name) + '</div><div class="nb-meta">' + starsHTML(d.stars) + ' ' + d.rarity + '</div>';
-    html += '<div class="chips center">' + traitChips(j.genes) + '</div>';
-    if (lede) html += '<p class="m-text">' + lede + '</p>';
-    if (found && found.length) html += '<p class="found">圖鑑新發現：' + found.map(Game.codexName).join('、') + '</p>';
-    return html;
-  };
-
-  UI.birthModal = (j, found) => {
-    UI.showModal((card, close) => {
-      card.innerHTML =
-        newbornCard('新生命！', (j.parents ? esc(j.parents.join(' 和 ')) + '的孩子，' : '') + '剛從水螅體脫離出發，現在還是一片小小的碟狀幼體。', j, found) +
-        '<div class="btn-row center"><button class="btn ghost" data-r="rename">取別的名字</button><button class="btn" data-r="ok">歡迎你</button></div>';
-      card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
-      card.querySelector('[data-r="rename"]').addEventListener('click', () => {
-        close();
-        setTimeout(async () => {
-          const name = await UI.prompt({ title: '幫牠取個名字', value: j.name, max: 12 });
-          if (name) Game.rename(j.id, name);
-        }, 320);
-      });
-    });
-  };
-
-  UI.catchModal = (j, found) => {
-    UI.showModal((card, close) => {
-      card.innerHTML =
-        newbornCard('撈到了！', '一隻從外面的海來的水母。' + (j.adult ? '已經是大人了。' : '還沒完全長大。'), j, found) +
-        '<div class="btn-row center"><button class="btn">歡迎你</button></div>';
-      card.querySelector('.btn').addEventListener('click', () => close());
-    });
   };
 
   /** 一份心情的小卡：字、時間、浪的變化 */
@@ -426,5 +322,19 @@
       { cls: 'paper' }
     );
   };
+
+  /* ---------- 成就（檢核表，紙） ---------- */
+  RENDER.ach = (body) => {
+    const s = Game.state;
+    let html = '<ul class="ach-list">';
+    for (const a of Game.ACH) {
+      const done = s.achievements[a.id];
+      html += '<li class="ach' + (done ? ' done' : '') + '">' + icon('trophy') + '<div><b>' + a.name + '</b><small>' + a.desc + '</small></div><span class="ach-r">' + (done ? dateStr(done) : a.reward ? '+' + a.reward : '紀念') + '</span></li>';
+    }
+    html += '</ul>';
+    body.innerHTML = html;
+    return '成就';
+  };
+  RENDER.ach.back = 'more';
 
 })((window.MJ = window.MJ || {}));

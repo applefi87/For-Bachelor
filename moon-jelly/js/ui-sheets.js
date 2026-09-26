@@ -1,4 +1,4 @@
-/* 海月水母館 — 海裡的抽屜：水母名片、找伴侶、商店、呼吸、更多、名冊、成就、設定、關於 */
+/* 海月水母館 — 海裡的抽屜：水母名片、找伴侶、商店、呼吸、更多、名冊、設定、關於 */
 (function (MJ) {
   'use strict';
 
@@ -411,19 +411,6 @@
     return '水母名冊';
   };
   RENDER.roster.back = 'more';
-
-  RENDER.ach = (body) => {
-    const s = Game.state;
-    let html = '<ul class="ach-list">';
-    for (const a of Game.ACH) {
-      const done = s.achievements[a.id];
-      html += '<li class="ach' + (done ? ' done' : '') + '">' + icon('trophy') + '<div><b>' + a.name + '</b><small>' + a.desc + '</small></div><span class="ach-r">' + (done ? dateStr(done) : a.reward ? '+' + a.reward : '紀念') + '</span></li>';
-    }
-    html += '</ul>';
-    body.innerHTML = html;
-    return '成就';
-  };
-  RENDER.ach.back = 'more';
 
   RENDER.settings = (body) => {
     const st = Game.state.settings;

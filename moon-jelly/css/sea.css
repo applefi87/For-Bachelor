@@ -458,3 +458,104 @@ body.mode-breath .dock, body.mode-sleep .dock, body.mode-photo .dock, body.mode-
 @keyframes flash { 0% { opacity: 0.7; } 100% { opacity: 0; } }
 
 @keyframes breathe { 50% { text-shadow: 0 0 60px rgba(150, 220, 240, 0.6), 0 0 120px rgba(120, 190, 255, 0.35); } }
+
+/* ---------------- 對話牌（暗色）、導言牌、新生命、陪完的結果（從 paper.css 搬來） ---------------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  padding: calc(var(--safe-t) + 16px) 16px calc(var(--safe-b) + 16px);
+  background: rgba(2, 8, 14, 0.5);
+  opacity: 0;
+  transition: opacity 0.28s var(--ease);
+}
+
+.modal.open { opacity: 1; }
+
+.modal-card {
+  width: min(420px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 26px 24px 22px;
+  border-radius: 26px;
+  border: 1px solid var(--line-2);
+  background: var(--glass-strong);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+  display: grid;
+  gap: 14px;
+  text-align: center;
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.35s var(--ease);
+}
+
+.modal.open .modal-card { transform: none; }
+
+.modal-card.wide { width: min(520px, 100%); }
+
+.m-title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.06em; text-wrap: balance; }
+
+.m-text { margin: 0; color: var(--mist); font-size: 14.5px; text-wrap: pretty; }
+
+.m-foot { margin: 0; color: var(--faint); font-size: 13px; }
+
+.m-form { display: grid; gap: 14px; }
+
+.how { list-style: none; margin: 0; padding: 12px 14px; display: grid; gap: 6px; text-align: left; border-radius: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); font-size: 14.5px; color: var(--mist); }
+
+.how b { color: var(--ink); margin-right: 6px; }
+
+.born-row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+
+.wb-steps { display: grid; gap: 8px; text-align: left; }
+
+.wb-h { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--mist); }
+
+.wb-h .i { width: 20px; height: 20px; color: hsl(100, 60%, 70%); flex: none; }
+
+.wb-step { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+
+.wb-step b { font-size: 15px; font-weight: 500; }
+
+.wb-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.wb-btns small { color: var(--sea); font-size: 13px; }
+
+.wb-actions { display: grid; gap: 8px; }
+
+.wb-actions .btn { justify-content: center; }
+
+.nb-name { font-size: 24px; font-weight: 700; letter-spacing: 0.08em; }
+
+.nb-meta { font-size: 13.5px; color: var(--mist); margin-top: -10px; }
+
+.photo { width: 100%; border-radius: 14px; border: 1px solid var(--line); }
+
+.sp-note { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: rgba(134, 224, 214, 0.05); border: 1px solid rgba(134, 224, 214, 0.16); font-size: 13.5px; color: var(--mist); }
+
+.sp-note div { display: grid; gap: 2px; }
+
+.sp-note b { font-size: 12px; color: var(--sea); font-weight: 400; letter-spacing: 0.1em; }
+
+.step-box { display: grid; gap: 2px; padding: 12px 14px; border-radius: 14px; border: 1px dashed rgba(170, 220, 130, 0.4); }
+
+.step-box span { font-size: 12px; color: var(--faint); }
+
+.step-box b { font-size: 17px; }
+
+.step-box small { font-size: 12.5px; color: var(--mist); }
+
+.res-badge { width: 72px; height: 72px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; color: hsl(var(--h), 75%, 78%); background: radial-gradient(circle at 45% 40%, hsla(var(--h), 60%, 55%, 0.45), hsla(var(--h), 60%, 30%, 0.2) 70%); box-shadow: 0 0 40px hsla(var(--h), 70%, 60%, 0.35); }
+
+.res-words { margin: 0; font-size: 15px; color: var(--mist); }
+
+.res-wave { margin: 0; font-size: 14.5px; color: #d7e9ee; }
+
+.modal-card.result .sea-q { margin-top: 4px; }
+
+.res-gift { margin: 0; display: inline-flex; justify-content: center; align-items: center; gap: 6px; font-size: 13px; color: var(--faint); }

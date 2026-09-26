@@ -612,6 +612,32 @@
     return null;
   };
 
+  /**
+   * 說明牌的指示線要指到哪裡。回傳一個每一幀都會被呼叫的函式，給出 [x, y, r]（CSS 像素：目標圈的圓心與半徑）；
+   * 東西已經不在了就回傳 null。thing 可以是水母、生態系裡的生物、漂流瓶、水螅體、裝飾。
+   * 生物類別可以自己定義 anchor()，回傳 [x, y, r]，會優先使用。
+   */
+  Game.targetOf = (thing) => () => {
+    if (!thing || thing.dead || thing.gone || thing.leaving) return null;
+    const u = Game.unit;
+    const W = Game.W;
+    const sand = (x) => (Game.world.sandY ? Game.world.sandY(x) : Game.world.floorY);
+    if (typeof thing.anchor === 'function') return thing.anchor();
+    if (typeof thing.center === 'function') {
+      const [x, y] = thing.center();
+      return [x, y, thing.bellH ? Math.max(thing.bellW, thing.bellH) * 0.6 + 6 : 30 * u];
+    }
+    if (typeof thing.pos === 'function') {
+      const p = thing.pos();
+      return p ? [p[0], p[1], 24 * u] : null;
+    }
+    if (typeof thing.x === 'number' && typeof thing.y === 'number' && thing.x > 1) return [thing.x, thing.y, 20 * u];
+    const xf = typeof thing.xf === 'number' ? thing.xf : typeof thing.x === 'number' ? thing.x : null;
+    if (xf == null) return null;
+    const x = xf * W;
+    return [x, sand(x) - 18 * u, 26 * u];
+  };
+
   Game.tapWater = (x, y) => {
     Game.fx.ripple(x, y);
     A.tapNote(x / Game.W, (x / Game.W) * 2 - 1);
