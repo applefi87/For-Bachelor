@@ -42,6 +42,8 @@
 ## 我的做法（專案裡沒寫的）
 
 - **功能檔**：`moon-jelly/docs/features/` 每個功能一個檔案（一句話、已有、待開發、決定過的事），`README.md` 是總表。改功能前先讀那個檔，做完更新它；專家報告全文在 `docs/panel/`，規劃書在 `docs/plans/`。這樣不用讀程式就能回答「現在有什麼」。
+- **分工**：使用者會用另一個（本機的）session 實作 `moon-jelly/docs/specs/` 裡的規格；雲端 session 負責規劃、規格、審查與預覽。規格要寫到「換一個沒看過對話的人也能做」：入口、資料、文案、驗收。
+- **部署**：Artifact 擋所有網路請求（只放行幾個 script CDN 與 Google Fonts），所以有帳號與雲端之後正式網站要放 GitHub Pages；Artifact 只當預覽。
 
 - **大改之前**：先請專家各寫報告 → 整合成一份規格（寫明衝突怎麼裁決）→ 主設計者先做共用基礎（token、元件）→ 多個 agent 依**嚴格的檔案分工**在各自的 git worktree 平行施工 → 整合、一致性掃描、完整回歸測試、親眼看截圖。agent 可能撞到用量上限，要他們每完成一段就先 commit 存檔。
 - **測試**：Playwright（`/opt/node22/lib/node_modules/playwright`，不要 `playwright install`）＋ `http-server -p 8765 -s -c-1 moon-jelly`。回歸測試分四組：桌面（50 項）、手機 390×844（9 項）、危機安全（24 項）、舊存檔相容；另外用 `file://` 測單檔版。這些腳本放在 session 的暫存區，換 session 要重寫。

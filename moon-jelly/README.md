@@ -143,5 +143,6 @@ moon-jelly/
 │   ├── tides.js     潮汐圖
 │   └── game.js      主迴圈、輸入、經濟、事件
 ├── docs/features/   每個功能一個檔案：一句話、已有、待開發、決定過的事（先看 README.md）
+├── docs/specs/      給接手開發的人的規格，照編號做
 └── tools/build-single.js
 ```

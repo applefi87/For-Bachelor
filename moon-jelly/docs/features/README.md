@@ -14,7 +14,9 @@
 | 危機安全 | 已有，不套美術風格 | 每個寫字的地方都做自傷字詞檢查；專線可直接撥打；危機紀錄不給光、不重現原文、之後安靜 | `js/feelings.js` 的 `careHTML` |
 | 餵食選單 | 已有 | 貼著「餵食」按鈕的小清單，只佔一小塊 | `js/ui.js` `UI.updateFood`、`css/sea.css` `.popover` |
 | 存檔 | 已有 | 只在這台裝置的瀏覽器裡；紀錄永遠不丟（存檔太大時只拿掉最舊的原文）；有存檔碼可以匯出匯入；已向瀏覽器申請持久儲存 | `js/store.js`、`js/game.js` `trimSave` |
-| 帳號與雲端備份 | 待開發（已規劃） | 匿名帳號自動備份、Google 綁定；紀錄用聯集合併，永遠不少一筆 | [../plans/cloud.md](../plans/cloud.md) |
-| 紀錄簿（大量紀錄怎麼看） | 待決定 | 依月份列出每一筆、可篩選；館藏、那天的海是加選 | [../plans/cloud.md](../plans/cloud.md) 第 3 節 |
+| 帳號與雲端備份 | 待開發，規格已寫 | 匿名帳號自動備份、Google 綁定；紀錄用聯集合併，永遠不少一筆 | [../specs/04-firebase-sync.md](../specs/04-firebase-sync.md) |
+| 紀錄簿 | 待開發，規格已寫 | 依月份列出每一筆、可篩選搜尋、點開紀錄卡、跳去看還在海裡的生物 | [../specs/01-record-book.md](../specs/01-record-book.md) |
+| 存檔改成館＋月份 | 待開發，規格已寫 | 存的格式拆成 profile 與每月一份，程式裡的 state 不變 | [../specs/02-save-structure.md](../specs/02-save-structure.md) |
+| 館方公告與搬家 | 待開發，規格已寫 | 可以對所有人發一則有按鈕的公告；第一則是從舊網址帶著存檔搬到新網址 | [../specs/03-notices-and-move.md](../specs/03-notices-and-move.md) |
 | 多語言 | 待開發（只有架構） | 介面走 T()，內容每個語言一包，地區決定專線，字型跟語言 | [../plans/i18n.md](../plans/i18n.md) |
 | 付費、App、營利 | 待開發（只有規劃）；已決定綠界、小額、不訂閱、不 iOS、第一批先不上 | 先網頁付款、先不上商店；只賣「在館裡留下一點東西」 | [../plans/money.md](../plans/money.md)、[../plans/decisions.md](../plans/decisions.md) |
