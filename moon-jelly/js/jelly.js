@@ -8,10 +8,6 @@
   const HALF_PI = Math.PI / 2;
   const TENT_SEGS = 14;
   const ARM_SEGS = 9;
-  // 生物發光的飽和度上限（color.md §2.5）：身體 .72；光暈另外在 MJ.glow 裡壓到 .6
-  const SAT_MAX = 0.72;
-  const phone = (env) => Math.min(env.W, env.H) < 500;
-  const glow = (ctx, x, y, size, h, s, l, a) => (MJ.glow ? MJ.glow(ctx, x, y, size, h, s, l, a) : U.drawGlow(ctx, x, y, size, h, Math.min(s, 0.6), l, a));
 
   class Jelly {
     constructor(data, env) {
@@ -29,10 +25,6 @@
       this.parents = data.parents || null;
       this.visitor = !!data.visitor;
       this.origin = data.origin || null;
-      // 第幾隻來到這裡（說明牌的 No.）：建立時由 Game.numberJellies 給，存檔後不變，不用陣列索引算
-      this.no = data.no || null;
-      // 使用者改過名字（名字用手寫體顯示）
-      this.named = !!data.named;
 
       this.x = data.x != null ? data.x * env.W : U.rand(env.W * 0.15, env.W * 0.85);
       this.y = data.y != null ? data.y * env.H : U.rand(env.H * 0.2, env.H * 0.65);
@@ -71,16 +63,9 @@
         lastBreed: this.lastBreed,
         parents: this.parents,
         origin: this.origin,
-        no: this.no,
-        named: this.named || undefined,
         x: +(this.x / env.W).toFixed(3),
         y: +(this.y / env.H).toFixed(3),
       };
-    }
-
-    /** 和生態系的生物一樣有 kind，說明牌與 F.latinOf 用 */
-    get kind() {
-      return 'jelly';
     }
 
     get stage() {
@@ -95,9 +80,7 @@
       return U.clamp(1 - this.growth / 0.3, 0, 1);
     }
     get bellW() {
-      // 心情變成的水母在手機上至少放大 1.3 倍（DESIGN §8），不然 0.62 的 unit 下小到看不清楚
-      const moodK = this.origin && this.env.W && phone(this.env) ? 1.35 : 1;
-      return 72 * this.env.unit * moodK * this.genes.size * (0.28 + 0.72 * U.easeOut(this.growth));
+      return 72 * this.env.unit * this.genes.size * (0.28 + 0.72 * U.easeOut(this.growth));
     }
     get bellH() {
       return this.bellW * U.lerp(G.SHAPES[this.genes.shape].h, 0.32, this.ephyra);
@@ -123,21 +106,6 @@
       const dx = px - cx;
       const dy = py - cy;
       return dx * dx + dy * dy < r * r;
-    }
-
-    /**
-     * 說明牌的目標圈 [x, y, r]（CSS 像素）。半徑 = 傘的外觀半徑 + 8，限制在 16–64。
-     * 已經離開水族箱、淡出、或游出畫面時回傳 null。
-     */
-    anchor() {
-      const env = this.env;
-      if (env.jellies && !env.jellies.includes(this)) return null;
-      // 剛游進來（淡入中）照樣指；離開時淡掉了才不指
-      if (this.leaving && this.fade < 0.05) return null;
-      const [cx, cy] = this.center();
-      const r = U.clamp(Math.max(this.bellW, this.bellH) * 0.55 + 8, 16, 64);
-      if (cx < -r || cy < -r || cx > env.W + r || cy > env.H + r) return null;
-      return [cx, cy, r];
     }
 
     buildPattern() {
@@ -180,34 +148,12 @@
 
     /* ---------------- 行為 ---------------- */
 
-    /**
-     * 下一個要漂去的地方。水母分散開，不擠在中間（DESIGN §8）：
-     * 挑幾個候選點，選離其他水母最遠的那一個。手機上只用上方 65% 的空間，下面留給沙地上的生物。
-     */
     pickWanderTarget() {
       const env = this.env;
       const floor = env.world.floorY;
       const top = env.H * 0.1 + this.bellH;
-      let bottom = floor - this.bellH - this.bellW * 1.2;
-      if (phone(env)) bottom = Math.min(bottom, env.H * 0.65 - this.bellH * 0.5);
-      bottom = Math.max(top + 20, bottom);
-      const others = (env.jellies || []).filter((k) => k !== this && !k.leaving);
-      let best = null;
-      let bestD = -1;
-      for (let i = 0; i < 6; i++) {
-        const cx = U.rand(env.W * 0.08, env.W * 0.92);
-        const cy = U.rand(top, bottom);
-        let d = Infinity;
-        for (const k of others) {
-          d = Math.min(d, Math.hypot(k.x - cx, k.y - cy));
-          if (k.target) d = Math.min(d, Math.hypot(k.target.x - cx, k.target.y - cy));
-        }
-        if (d > bestD) {
-          bestD = d;
-          best = [cx, cy];
-        }
-      }
-      let [x, y] = best;
+      let x = U.rand(env.W * 0.08, env.W * 0.92);
+      let y = U.rand(top, floor - this.bellH - this.bellW * 1.2);
       if (env.world.rain) {
         // 下雨的日子，水母會靠近畫面中間陪你
         x = U.lerp(x, env.W / 2, 0.55);
@@ -352,10 +298,6 @@
       if (this.y < top && mode !== 'leave') this.vy += (top - this.y) * 1.5 * dt;
       const floor = env.world.floorY - this.bellW * 0.5;
       if (this.y > floor) this.vy -= (this.y - floor) * 1.5 * dt;
-      if (mode === 'wander' && env.W && phone(env) && !breathing) {
-        const soft = env.H * 0.72;
-        if (this.y > soft) this.vy -= (this.y - soft) * 0.6 * dt;
-      }
 
       this.x += this.vx * dt;
       this.y += this.vy * dt;
@@ -514,7 +456,7 @@
       const bright = this.brightness;
       const hue = this.colorAt(t);
       const hue2 = g.special === 'rainbow' ? U.wrapHue(g.hue2 + t * 40 + 90) : g.hue2;
-      const sat = Math.min(g.sat, SAT_MAX);
+      const sat = g.sat;
       const themeGlow = env.world && env.world.theme ? env.world.theme.glow || 1 : 1;
 
       ctx.save();
@@ -525,9 +467,9 @@
       const [cx, cy] = this.center();
       const size = Math.max(this.bellW, this.bellH) * (2.1 + 1.8 * g.glow) * (0.8 + bright * 0.4);
       const glowSat = g.special === 'moonlight' ? 0.35 : sat;
-      glow(ctx, cx, cy, size, hue, glowSat, 0.62, (0.35 + 0.45 * g.glow) * bright * themeGlow);
+      U.drawGlow(ctx, cx, cy, size, hue, glowSat, 0.62, (0.35 + 0.45 * g.glow) * bright * themeGlow);
       if (g.special === 'moonlight' || g.special === 'golden') {
-        glow(ctx, cx, cy, size * 1.4, g.special === 'golden' ? 42 : 210, 0.5, 0.75, 0.35 * bright);
+        U.drawGlow(ctx, cx, cy, size * 1.4, g.special === 'golden' ? 45 : 210, 0.5, 0.75, 0.35 * bright);
       }
 
       // 觸手
@@ -553,7 +495,7 @@
         ctx.stroke();
         if (g.special === 'firefly' && k % 2 === 0) {
           const tp = TENT_SEGS * 4;
-          glow(ctx, pts[tp], pts[tp + 1], 12 * env.unit, U.wrapHue(hue2 + 20), 0.6, 0.65, 0.5 + 0.5 * Math.sin(t * 3 + k));
+          U.drawGlow(ctx, pts[tp], pts[tp + 1], 12 * env.unit, U.wrapHue(hue2 + 20), 0.9, 0.65, 0.5 + 0.5 * Math.sin(t * 3 + k));
         }
       }
 
@@ -642,7 +584,7 @@
       let fill;
       if (g.special === 'rainbow' && !inner) {
         fill = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
-        for (let i = 0; i <= 5; i++) fill.addColorStop(i / 5, U.hsla(t * 50 + i * 60, 0.6, 0.72, 0.42 * A));
+        for (let i = 0; i <= 5; i++) fill.addColorStop(i / 5, U.hsla(t * 50 + i * 60, 0.85, 0.72, 0.42 * A));
       } else if (g.special === 'aurora' && !inner) {
         fill = ctx.createLinearGradient(0, -h, 0, 0);
         const s = (Math.sin(t * 0.7) + 1) / 2;
@@ -701,7 +643,7 @@
       if (pat === 'plain') return;
       ctx.globalCompositeOperation = 'lighter';
       if (pat === 'clover') {
-        ctx.strokeStyle = U.hsla(hue2, sat, 0.78, 0.55 * A);
+        ctx.strokeStyle = U.hsla(hue2, Math.max(0.5, sat), 0.78, 0.55 * A);
         ctx.lineWidth = Math.max(1, 2.2 * u * g.size);
         for (let k = 0; k < 4; k++) {
           const a = Math.PI / 4 + (k * Math.PI) / 2;
@@ -725,13 +667,13 @@
           } else if (pat === 'heart') {
             if (i % 3) continue;
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = U.hsla(349, 0.5, 0.8, (0.45 + 0.35 * tw) * A);
+            ctx.fillStyle = U.hsla(345, 0.85, 0.8, (0.45 + 0.35 * tw) * A);
             ctx.beginPath();
             U.heartPath(ctx, x, y, (3 + d.r * 2) * u * g.size);
             ctx.fill();
             ctx.globalCompositeOperation = 'lighter';
           } else {
-            ctx.fillStyle = i % 4 === 0 ? U.hsla(42, 0.6, 0.85, (0.3 + 0.7 * tw) * A) : U.hsla(210, 0.3, 0.95, (0.25 + 0.7 * tw) * A);
+            ctx.fillStyle = i % 4 === 0 ? U.hsla(48, 0.9, 0.85, (0.3 + 0.7 * tw) * A) : U.hsla(210, 0.3, 0.95, (0.25 + 0.7 * tw) * A);
             ctx.beginPath();
             U.sparklePath(ctx, x, y, (1.5 + d.r * 2.2 * tw) * u * g.size);
             ctx.fill();

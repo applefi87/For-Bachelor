@@ -1,362 +1,248 @@
-/* 海月水母館 — 心情的儀式：暗色的「心情紀錄」表（DESIGN.md §7）。
- * 紙的結構（頁首、欄位、細線），暗牌的材質（--plate 實色、直角、沒有框、沒有模糊）。
- * 背後的海變暗由 world（game.js 依 MJ.Ritual.open）處理；這裡的外層不加任何底色。 */
+/* 海月水母館 — 心情的儀式。 */
+
+/* ================================================================
+ * 心情的儀式
+ * ================================================================ */
 
 .ritual {
   position: fixed;
   inset: 0;
   z-index: 38;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: calc(var(--safe-t) + 48px) 8px calc(var(--safe-b) + 8px);
-  overflow: hidden;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  padding: calc(var(--safe-t) + 16px) 16px calc(var(--safe-b) + 16px);
+  background: radial-gradient(90% 70% at 50% 40%, rgba(4, 14, 26, 0.35), rgba(2, 8, 14, 0.72));
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
 }
+
+.ritual.open { opacity: 1; }
+
+body.ritual-open .hud, body.ritual-open .dock, body.ritual-open .hint { opacity: 0; pointer-events: none; }
 
 .ritual-card {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  width: 100%;
-  max-width: 576px;
-  height: 100%;
-  background: var(--plate);
-  color: var(--ink-1);
-  /* 紀錄表從下方整張滑進來、滑出去；不改透明度 */
-  transform: translateY(calc(100% + 64px));
-  transition: transform 240ms cubic-bezier(0.4, 0, 1, 1);
-}
-
-.ritual.open .ritual-card { transform: none; transition: transform 320ms var(--ease); }
-
-@media (min-width: 700px) {
-  .ritual { padding: 48px 16px; }
-  .ritual-card { max-height: 760px; }
-}
-
-/* ---------------- 頁首 ---------------- */
-
-.ritual-head { padding: 0 24px; border-bottom: 1px solid var(--rule); }
-
-.r-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 48px; }
-
-.r-label { margin: 0; display: flex; align-items: baseline; gap: 12px; font-size: var(--t5); line-height: var(--lh5); color: var(--ink-2); }
-
-.r-label .num { font-size: var(--t6); color: var(--ink-3); }
-
-/* 四個步驟字：不編號、不做進度條；目前那個 --ink-1 ＋ 2px accent 底線，底線平移 */
-.ritual-steps {
-  --i: 0;
-  position: relative;
-  display: flex;
-  gap: 24px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--t4);
-  line-height: var(--lh4);
-}
-
-.ritual-steps li { padding: 4px 0 12px; color: var(--ink-3); white-space: nowrap; }
-
-.ritual-steps li.done { color: var(--ink-2); }
-
-.ritual-steps li.on { color: var(--ink-1); }
-
-/* 四個步驟都是三個字，所以第 i 個的位置 = i ×（3 個字寬 ＋ 間距 24） */
-.ritual-steps::after {
-  content: "";
-  position: absolute;
-  left: calc(var(--i) * (3em + 24px));
-  bottom: -1px;
-  width: 3em;
-  height: 2px;
-  background: var(--accent);
-  transition: left var(--dur) var(--ease);
-}
-
-.ritual-steps.still::after { transition: none; }
-
-/* ---------------- 內容（捲動） ---------------- */
-
-.ritual-body {
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  width: min(540px, 100%);
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px 24px 32px;
+  border-radius: 28px;
+  border: 1px solid var(--line-2);
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(40, 80, 110, 0.4), transparent 70%),
+    var(--glass-strong);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+  transform: translateY(14px);
+  transition: transform 0.4s var(--ease);
 }
 
-.ritual-body > * { flex-shrink: 0; margin: 0; }
+.ritual.open .ritual-card { transform: none; }
 
-/* 換步驟：新內容 120ms 淡入（不位移） */
-.ritual-body.ink, .ritual-foot.ink { animation: r-ink var(--dur-fast) linear; }
+.ritual-head { display: flex; align-items: center; gap: 8px; padding: 14px 12px 4px 22px; }
 
-@keyframes r-ink { from { opacity: 0; } }
+.ritual-steps { flex: 1; list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; }
 
-.r-title { font-size: var(--t2); line-height: var(--lh2); font-weight: 500; }
+.ritual-steps li { flex: 1; display: grid; gap: 4px; font-size: 12px; color: var(--faint); }
 
-.r-title:focus { outline: none; }
+.ritual-steps li i { height: 3px; border-radius: 3px; background: var(--line-2); display: block; }
 
-.ritual-body > .r-sub { margin-top: -8px; }
+.ritual-steps li.done i { background: rgba(134, 224, 214, 0.55); }
 
-.r-sub { font-size: var(--t4); line-height: var(--lh4); color: var(--ink-2); }
+.ritual-steps li.on { color: var(--ink); }
 
-.r-ask { margin: 0; font-size: var(--t4); line-height: var(--lh4); color: var(--ink-1); }
+.ritual-steps li.on i { background: var(--sea); }
 
-.r-note { margin: 0; font-size: var(--t5); line-height: var(--lh5); color: var(--ink-2); }
+.ritual-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 10px 22px 22px; display: flex; flex-direction: column; gap: 14px; }
 
-.r-cap { margin: 0; font-size: var(--t5); line-height: var(--lh5); color: var(--ink-2); }
+.ritual-body > * { flex-shrink: 0; }
 
-.r-cap .num { font-size: var(--t6); color: var(--ink-1); }
+.r-title { margin: 6px 0 0; font-size: 23px; font-weight: 700; letter-spacing: 0.04em; text-wrap: balance; display: flex; align-items: center; gap: 10px; }
 
-/* 你寫的字：手寫體，左邊一條細線 */
-.r-quote { margin: 0; padding-left: 12px; border-left: 1px solid var(--rule-strong); font-size: var(--t3); line-height: var(--lh3); white-space: pre-wrap; }
+.r-title .title-i { width: 28px; height: 28px; color: hsl(var(--h, 190), 70%, 72%); }
 
-.ritual-body .check { padding: 4px 0; }
+.r-sub { margin: -4px 0 0; color: var(--mist); font-size: 14.5px; text-wrap: pretty; }
 
-/* 書寫線的最後一條就是底線（不要兩條疊在一起） */
-.ritual-body textarea.lined { background-size: 100% calc(100% - 1px); }
+.r-ask { margin: 0; font-size: 15.5px; color: #e9f3f0; }
 
-/* 倒出來下面的兩條文字路 */
-.r-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; }
+.r-note { margin: 0; color: var(--faint); font-size: 13px; }
 
-.r-care { font-size: var(--t5); }
+.r-quote { margin: 0; padding: 10px 14px; border-left: 2px solid var(--line-2); color: var(--mist); font-size: 14.5px; white-space: pre-wrap; }
 
-/* ---------------- 頁尾（固定）：左邊狀態，右邊行動 ---------------- */
+.check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; cursor: pointer; }
 
-.ritual-foot { display: grid; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--rule); }
+.check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 
-.r-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
+.check i { flex: none; width: 20px; height: 20px; margin-top: 2px; border-radius: 6px; border: 1.5px solid var(--line-2); display: grid; place-items: center; transition: background 0.2s, border-color 0.2s; }
 
-.r-status { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--t5); line-height: var(--lh5); color: var(--ink-2); }
+.check input:checked + i { background: var(--sea); border-color: var(--sea); }
 
-.r-status .num { font-size: var(--t6); color: var(--ink-1); }
+.check input:checked + i::after { content: ""; width: 9px; height: 5px; border: 2px solid #06231f; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
 
-/* ---------------- 量尺：浪有多大？ ---------------- */
+.check input:focus-visible + i { outline: 2px solid var(--sea); outline-offset: 2px; }
 
-.r-meter { display: grid; gap: 0; }
+.check span { display: grid; }
 
-.r-meter-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.check small { color: var(--faint); font-size: 12.5px; }
 
-.r-meter-head label { font-size: var(--t4); line-height: var(--lh4); color: var(--ink-2); }
+.fam-grid { display: grid; gap: 8px; }
 
-/* 讀數：等寬、跟一般文字同色（不用金色，強度不是得分） */
-.r-read { font-family: var(--f-mono); font-size: var(--t2); line-height: var(--lh2); color: var(--ink-1); font-variant-numeric: tabular-nums; }
+.fam { display: grid; grid-template-columns: 4.2em 1fr; gap: 8px; align-items: start; }
 
-.r-meter.big .r-read { font-size: var(--t1); line-height: var(--lh1); }
+.fam-name { display: flex; align-items: center; gap: 6px; padding-top: 5px; font-size: 13px; color: var(--mist); white-space: nowrap; }
 
-.r-read .r-unset { font-family: var(--f-sans); font-size: var(--t5); line-height: var(--lh5); color: var(--ink-3); }
+.fam-name i { width: 9px; height: 9px; border-radius: 50%; background: hsl(var(--h), var(--s), 62%); box-shadow: 0 0 8px hsl(var(--h), var(--s), 62%); }
 
-.r-ruler { position: relative; }
+.words { display: flex; flex-wrap: wrap; gap: 6px; }
 
-.r-ruler.has-before { padding-top: 24px; }
-
-/* 「剛才」：尺上一條 1px 的淡刻度（位置和指針的中心對齊） */
-.r-before {
-  position: absolute;
-  top: 4px;
-  left: calc((100% - 2px) * var(--v) / 10 + 0.5px);
-  width: 1px;
-  height: 48px;
-  background: var(--ink-3);
-  pointer-events: none;
+.word {
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink);
+  font-size: 14.5px;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s var(--ease);
 }
 
-.r-before span { position: absolute; top: -4px; left: 4px; font-size: var(--t5); line-height: 1.2; color: var(--ink-3); white-space: nowrap; }
+.word:hover { border-color: hsl(var(--h), var(--s), 60%); }
 
-.r-before.flip span { left: auto; right: 4px; }
+.word.on { background: hsla(var(--h), var(--s), 55%, 0.28); border-color: hsl(var(--h), var(--s), 65%); transform: scale(1.04); }
 
-.r-scale { display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; font-size: var(--t5); line-height: var(--lh5); color: var(--ink-3); }
-
-.r-scale > :nth-child(2) { justify-self: center; }
-
-.r-scale > :last-child { justify-self: end; }
-
-.r-scale .num { font-size: var(--t6); }
-
-/* 小浪：你的墨水畫的一條線（canvas 讀這裡的 color） */
-.wave { display: block; width: 100%; height: 40px; margin-top: 4px; color: var(--pen); }
-
-/* ---------------- 取名字 ---------------- */
-
-/* 筆圈的字：讓字的左緣對齊標題（.pick 有 12px 內距） */
-.picks { display: flex; flex-wrap: wrap; gap: 0 4px; margin-left: -12px; }
-
-.picks.grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 4px; }
-
-.recent-words { display: grid; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
-
-.recent-words .sub-h { margin: 0; }
-
-/* 第一層：10 個家族名；點了在原地展開那 6 個字（dense 讓展開的那一列插在同一排的下面） */
-.fam-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-auto-flow: row dense;
-  gap: 4px 4px;
-  margin-left: -12px;
+@media (max-width: 420px) {
+  .fam { grid-template-columns: 1fr; gap: 4px; }
+  .fam-name { padding-top: 0; }
 }
 
-.fam-name { gap: 8px; white-space: nowrap; }
+.intensity { display: grid; gap: 4px; }
 
-.fam-grid.has-open .fam-name[aria-expanded="false"] { color: var(--ink-2); }
+.i-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; }
 
-.fam-words {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0 4px;
-  padding: 4px 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-}
+.i-head b { font-family: var(--font-en); font-style: italic; font-size: 26px; font-weight: 500; color: var(--glow); line-height: 1; }
 
-.fam-words[hidden] { display: none; }
+.intensity input[type="range"] { width: 100%; accent-color: var(--sea); }
 
-/* 被擠掉的那個筆圈淡出 300ms，讓人看得到 */
-.pick.out::after { clip-path: inset(0 0 0 0); opacity: 0; transition: opacity 300ms linear; }
+.i-scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--faint); }
 
-.pick { white-space: nowrap; }
+.wave { width: 100%; height: 46px; display: block; }
 
-/* 格子裡的字：筆圈只圈住字（寬 = 字寬 ＋ 內距），不撐滿格子 */
-.fam-grid > .pick, .fam-words > .pick, .picks.grid > .pick { justify-self: start; }
-
-/* ---------------- 怎麼陪：直式清單，不放圖、不上色 ---------------- */
-
-.turns { display: grid; border-top: 1px solid var(--rule); }
+.turns { display: grid; gap: 8px; }
 
 .turn {
-  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 16px;
-  min-height: 64px;
-  padding: 12px 0;
-  border: 0;
-  border-bottom: 1px solid var(--rule);
-  border-radius: 0;
-  background: none;
-  color: var(--ink-1);
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
   text-align: left;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s var(--ease);
 }
 
-.turn[hidden] { display: none; }
+.turn:hover { border-color: hsla(var(--h), 70%, 65%, 0.7); background: hsla(var(--h), 60%, 50%, 0.08); transform: translateX(2px); }
 
-.turn:hover .t-name { text-decoration: underline 1px; text-underline-offset: 0.3em; }
+.turn-i { width: 26px; height: 26px; color: hsl(var(--h), 70%, 72%); }
 
-.turn:active { color: var(--ink-2); }
+.turn-main { display: grid; min-width: 0; }
 
-/* 「這種時候常用」：列左緣一條 2px 的墨水線 */
-.turn.rec::before { content: ""; position: absolute; left: -12px; top: 12px; bottom: 12px; width: 2px; background: var(--ink-1); }
+.turn-main b { font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-.t-main { display: grid; gap: 0; min-width: 0; }
+.turn-main small { color: var(--mist); font-size: 13px; }
 
-.t-name { font-size: var(--t4); line-height: var(--lh4); font-weight: 500; }
+.turn-sp { font-size: 12px; color: var(--faint); white-space: nowrap; }
 
-.t-sub { font-size: var(--t5); line-height: var(--lh5); color: var(--ink-2); }
+.new { font-style: normal; font-weight: 400; font-size: 11.5px; color: var(--glow); border: 1px solid rgba(245, 218, 146, 0.4); border-radius: 999px; padding: 0 7px; }
 
-.t-sp { font-size: var(--t5); line-height: var(--lh5); color: var(--ink-3); white-space: nowrap; }
+@media (max-width: 420px) {
+  .turn { grid-template-columns: auto 1fr; }
+  .turn-sp { grid-column: 2; }
+}
 
-.r-more { align-self: flex-start; }
+.link-btn { align-self: center; display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: var(--mist); font-size: 14px; padding: 6px 10px; border-radius: 10px; }
 
-/* ---------------- 先著陸：作答圓 ---------------- */
+.link-btn:hover { color: var(--ink); background: rgba(255, 255, 255, 0.05); }
 
-.ground { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+.turn.rec { border-color: hsla(var(--h), 60%, 65%, 0.45); background: hsla(var(--h), 60%, 50%, 0.06); }
 
-.ground li { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; align-items: center; gap: 8px 16px; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.r-note.soft { padding: 10px 14px; border-radius: 14px; background: rgba(134, 224, 214, 0.06); border: 1px solid rgba(134, 224, 214, 0.18); color: var(--mist); font-size: 13.5px; }
+
+.recent-words { display: grid; grid-template-columns: 4.2em 1fr; gap: 8px; align-items: start; padding-bottom: 10px; border-bottom: 1px dashed var(--line); }
+
+.recent-words > span { padding-top: 5px; font-size: 13px; color: var(--faint); white-space: nowrap; }
+
+@media (max-width: 420px) {
+  .recent-words { grid-template-columns: 1fr; gap: 4px; }
+  .recent-words > span { padding-top: 0; }
+}
+
+.ground { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.ground li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); transition: border-color 0.3s, background 0.3s; }
+
+.ground li.done { border-color: hsla(300, 50%, 70%, 0.45); background: hsla(300, 50%, 50%, 0.07); }
 
 .g-lbl { display: grid; min-width: 0; }
 
-.g-lbl b { font-size: var(--t4); line-height: var(--lh4); font-weight: 500; }
+.g-lbl b { font-size: 15.5px; }
 
-.g-lbl small { font-size: var(--t5); line-height: var(--lh5); color: var(--ink-2); }
+.g-lbl small { font-size: 12.5px; color: var(--faint); }
 
-.g-dots { display: flex; }
+.g-dots { display: flex; gap: 6px; flex: none; }
 
-/* 可點範圍 44，畫出來的圓 28（手機 32），1px 線；點一下用墨水塗滿 */
-.g-dot { position: relative; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 0; background: none; }
+.g-dot { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--line-2); background: rgba(255, 255, 255, 0.02); transition: background 0.25s, border-color 0.25s, box-shadow 0.25s, transform 0.2s var(--ease); }
 
-.g-dot::before {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: 8px;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--ink-2);
-  border-radius: 50%;
-  transition: background-color 160ms linear, border-color 160ms linear;
+.g-dot:hover { border-color: hsla(300, 60%, 75%, 0.8); }
+
+.g-dot.on { background: hsl(300, 55%, 72%); border-color: hsl(300, 60%, 80%); box-shadow: 0 0 12px hsla(300, 70%, 70%, 0.6); transform: scale(0.92); }
+
+@media (max-width: 420px) {
+  .ground li { flex-wrap: wrap; }
+  .g-dot { width: 30px; height: 30px; }
 }
 
-.g-dot:hover::before { border-color: var(--ink-1); }
+.lenses { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 
-.g-dot.on::before { background: var(--pen); border-color: var(--pen); }
+.lens { display: grid; justify-items: center; gap: 2px; padding: 6px 2px 8px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); font-size: 12.5px; color: var(--mist); }
 
-/* 一列點滿：行尾出現一個勾 */
-.g-tick { position: relative; width: 20px; height: 20px; clip-path: inset(0 100% 0 0); }
+.lens canvas { width: 56px; height: 56px; max-width: 100%; }
 
-.g-tick::after { content: ""; position: absolute; left: 6px; top: 1px; width: 7px; height: 13px; border: solid var(--pen); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.lens.on { border-color: rgba(255, 190, 140, 0.7); background: rgba(255, 170, 110, 0.1); color: var(--ink); }
 
-.ground li.done .g-tick { clip-path: inset(0 0 0 0); transition: clip-path 160ms linear; }
-
-/* ---------------- 換個殼：5 選 1，筆圈圈住殼的畫 ---------------- */
-
-.lenses { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px 8px; }
-
-.lens { display: grid; justify-items: start; gap: 4px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--ink-2); font-size: var(--t5); line-height: var(--lh5); text-align: left; }
-
-.lens-fig { position: relative; display: grid; place-items: center; width: 64px; height: 64px; }
-
-.lens-fig canvas { display: block; width: 48px; height: 48px; }
-
-.lens-fig::after { content: ""; position: absolute; inset: 0; border: 1.5px solid var(--pen); border-radius: 50%; clip-path: inset(0 100% 0 0); pointer-events: none; }
-
-.lens.on { color: var(--ink-1); }
-
-.lens.on .lens-fig::after { clip-path: inset(0 0 0 0); transition: clip-path 160ms linear; }
-
-.r-ask:empty { display: none; }
-
-/* ---------------- 對自己溫柔 ---------------- */
-
-.kind-row { display: grid; gap: 8px; }
-
-.r-starters { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; }
-
-.r-starters-h { flex-basis: 100%; font-size: var(--t5); line-height: var(--lh5); color: var(--ink-3); }
-
-.r-starters .btn-3 { font-size: var(--t5); }
-
-/* ---------------- 讓它待著 ---------------- */
-
-.surf { display: block; width: 100%; height: 144px; color: var(--pen); }
-
-/* ---------------- 手機 ---------------- */
-
-@media (max-width: 699px) {
-  .ritual-head { padding: 0 16px; }
-  .ritual-body { padding: 16px 16px 24px; }
-  .ritual-foot { padding: 8px 16px 12px; }
-  /* 主要按鈕獨佔一行、滿寬 */
-  .r-row .btn { flex: 1 0 100%; justify-content: flex-start; }
-  .wave { height: 32px; }
-  .fam-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .fam-words { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .picks.grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .ground li { grid-template-columns: minmax(0, 1fr) 20px; }
-  .g-lbl { grid-column: 1 / -1; }
-  .g-dots { margin-left: -6px; }
-  .g-dot::before { left: 6px; top: 6px; width: 32px; height: 32px; }
-  .lenses { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 420px) {
+  .lenses { grid-template-columns: repeat(3, 1fr); }
 }
 
-/* 桌面：作答圓排成同一欄（5 × 44），每一列都從同一個位置開始 */
-@media (min-width: 700px) {
-  .ground li { grid-template-columns: minmax(0, 1fr) 220px 20px; }
+.chips.small .chip-btn { font-size: 13px; padding: 3px 10px; }
+
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 14px;
 }
 
-@media (prefers-contrast: more) {
-  .lens-fig::after { border: 0; border-bottom: 2px solid var(--pen); border-radius: 0; }
-}
+.chip-btn:hover { border-color: var(--line-2); }
+
+.chip-btn i { width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--h, 190), 80%, 62%); }
+
+.chip-btn.on { border-color: rgba(134, 224, 214, 0.7); background: rgba(134, 224, 214, 0.12); }
+
+.kind-steps { margin: 0; padding: 0 0 0 1.4em; display: grid; gap: 14px; }
+
+.kind-steps li { display: grid; gap: 8px; font-size: 15px; }
+
+.kind-steps li::marker { color: var(--rose); font-family: var(--font-en); font-style: italic; }
+
+.surf { width: 100%; height: 160px; display: block; border-radius: 16px; background: rgba(0, 0, 0, 0.18); }
+
+
+
+
+

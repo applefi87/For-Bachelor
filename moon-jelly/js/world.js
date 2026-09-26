@@ -1,66 +1,53 @@
-/* 海月水母館 — 海：背景、光束、海雪、氣泡、海草、主題特效、日夜 */
+/* 海月水母館 — 海：背景、光束、海雪、氣泡、海草、主題特效 */
 (function (MJ) {
   'use strict';
 
   const U = MJ.U;
 
-  /*
-   * 海的顏色（color.md §2.3、§2.7）：情緒上的輕重用亮度和彩度控制，色相只用來分辨是哪一片海。
-   * 光束、水面光、極光都不用高飽和的青綠；最深處不低於 OKLCH L 0.14；swatch 一律等於 grad[0]。
-   */
   const THEMES = {
     night: {
-      name: '深夜藍', price: 0, desc: '最初的那片海。深藍，光束從水面斜照下來。',
-      grad: ['#193d54', '#102a3f', '#0a192a', '#080f1c'],
-      ray: [200, 218, 226], rayA: 0.05, snow: [200, 214, 222], snowN: 1,
-      sand: ['#1a2d3f', '#0d1824'], sandLine: [170, 192, 204],
-      weed: [150, 178], weedSat: 0.26, weedLight: 0.23, glow: 1, swatch: '#193d54',
+      name: '深夜藍', price: 0, desc: '最初的那片海。安靜的深藍，剛剛好。',
+      grad: ['#14405e', '#0c2a45', '#07192d', '#040d19'],
+      ray: [170, 220, 240], rayA: 0.06, snow: [190, 225, 238], snowN: 1,
+      sand: ['#16304a', '#0a1828'], sandLine: [120, 180, 205],
+      weed: [165, 200], weedSat: 0.38, weedLight: 0.24, glow: 1, swatch: '#1b4a6b',
     },
     dusk: {
-      name: '黃昏珊瑚', price: 300, desc: '暗粉紫的水，往下漸漸變成深紫。',
-      grad: ['#5f3957', '#3d294a', '#221b36', '#100d21'],
-      ray: [240, 206, 192], rayA: 0.06, snow: [236, 214, 208], snowN: 1,
-      sand: ['#31263a', '#171322'], sandLine: [226, 188, 182],
-      weed: [318, 350], weedSat: 0.24, weedLight: 0.26, glow: 1, swatch: '#5f3957',
+      name: '黃昏珊瑚', price: 300, desc: '夕陽沉進海裡的那一刻，水是粉紫色的。',
+      grad: ['#7a4674', '#4b3264', '#271e48', '#120f28'],
+      ray: [255, 196, 170], rayA: 0.08, snow: [255, 215, 205], snowN: 1,
+      sand: ['#3d2b4d', '#1d1731'], sandLine: [255, 180, 170],
+      weed: [318, 350], weedSat: 0.32, weedLight: 0.3, glow: 1, swatch: '#7a4674',
     },
     moon: {
-      name: '滿月之夜', price: 400, desc: '水面上有一輪月亮，月光碎在水裡。',
-      grad: ['#213c5a', '#152b45', '#0c192e', '#070f1d'],
-      ray: [214, 222, 236], rayA: 0.05, snow: [212, 220, 234], snowN: 1,
-      sand: ['#202c3d', '#111723'], sandLine: [196, 208, 232],
-      weed: [175, 205], weedSat: 0.26, weedLight: 0.24, glow: 1.05, fx: 'moon', swatch: '#213c5a',
+      name: '滿月之夜', price: 400, desc: '從水裡也看得到月亮。今晚的月色很美。',
+      grad: ['#1e4068', '#132d4d', '#0a1b33', '#050e1e'],
+      ray: [230, 238, 255], rayA: 0.05, snow: [220, 230, 250], snowN: 1,
+      sand: ['#1c2c45', '#0d172a'], sandLine: [200, 215, 250],
+      weed: [175, 205], weedSat: 0.3, weedLight: 0.24, glow: 1.05, fx: 'moon', swatch: '#2a4f7a',
     },
     abyss: {
-      name: '無光深淵', price: 450, desc: '沒有光束，只有生物自己的光，海雪偶爾閃一下。',
-      grad: ['#0d1822', '#09121c', '#070d16', '#060a11'],
-      ray: [120, 170, 220], rayA: 0, snow: [160, 190, 220], snowN: 1.8,
-      sand: ['#0d151c', '#070b12'], sandLine: [70, 110, 150],
-      weed: [200, 235], weedSat: 0.26, weedLight: 0.13, glow: 1.2, fx: 'abyss', swatch: '#0d1822',
+      name: '無光深淵', price: 450, desc: '陽光到不了的地方，只剩水母自己的光。',
+      grad: ['#08141f', '#050d17', '#03080f', '#010408'],
+      ray: [120, 170, 220], rayA: 0, snow: [150, 190, 230], snowN: 1.8,
+      sand: ['#0b1520', '#04080d'], sandLine: [70, 110, 150],
+      weed: [200, 235], weedSat: 0.3, weedLight: 0.13, glow: 1.45, fx: 'abyss', swatch: '#0a1622',
     },
     sakura: {
-      name: '櫻花淺灘', price: 500, desc: '白天的淺灘，花瓣從水面落下。夜裡會跟著變暗。',
-      grad: ['#4b5e80', '#34476a', '#212f4e', '#101931'],
-      ray: [236, 218, 228], rayA: 0.055, snow: [236, 224, 232], snowN: 0.8,
-      sand: ['#3b4255', '#202538'], sandLine: [232, 206, 220],
-      weed: [115, 150], weedSat: 0.26, weedLight: 0.3, glow: 0.95, fx: 'petals', swatch: '#4b5e80',
+      name: '櫻花淺灘', price: 500, desc: '春天的淺灘，花瓣一片一片落進海裡。',
+      grad: ['#58709a', '#3b5480', '#223559', '#111c37'],
+      ray: [255, 222, 236], rayA: 0.075, snow: [255, 228, 238], snowN: 0.8,
+      sand: ['#3a4766', '#1e2745'], sandLine: [255, 205, 225],
+      weed: [115, 150], weedSat: 0.3, weedLight: 0.3, glow: 0.95, fx: 'petals', swatch: '#6f86b0',
     },
     aurora: {
-      name: '極光冰海', price: 650, desc: '北方的冰海，水面上有一道流動的極光。',
-      grad: ['#143a42', '#0b2a39', '#081a2a', '#060e1b'],
-      ray: [196, 228, 222], rayA: 0.03, snow: [210, 232, 230], snowN: 1.1,
-      sand: ['#1b3237', '#0d1a20'], sandLine: [160, 206, 198],
-      weed: [150, 178], weedSat: 0.26, weedLight: 0.22, glow: 1.12, fx: 'aurora', swatch: '#143a42',
+      name: '極光冰海', price: 650, desc: '北方的冰海，頭頂掛著一條會流動的光。',
+      grad: ['#0f3d4b', '#0b2b3f', '#071a2d', '#030b17'],
+      ray: [170, 255, 225], rayA: 0.03, snow: [215, 248, 245], snowN: 1.1,
+      sand: ['#163340', '#0a1a23'], sandLine: [150, 240, 220],
+      weed: [150, 178], weedSat: 0.35, weedLight: 0.22, glow: 1.12, fx: 'aurora', swatch: '#14505c',
     },
   };
-
-  /*
-   * 一天分三段（color.md §2.4，DESIGN §3.4）。不需要使用者設定：
-   *   白天 07–18、傍晚 18–21、夜 21–07。夜裡降低總光量，不改文字顏色。
-   * 夜裡 body 會加上 is-night（紙換成夜間紙色）。只有在時段改變時才切換 class，
-   * 所以別的程式（或測試）手動切換 is-night 時，海也會跟著那個 class 走。
-   */
-  const NIGHT_RAY = [214, 214, 206];
-  const phaseAt = (h) => (h >= 21 || h < 7 ? 'night' : h >= 18 ? 'dusk' : 'day');
 
   class World {
     constructor() {
@@ -74,47 +61,11 @@
       this.petals = [];
       this.drops = [];
       this.rain = false;
-      this.dim = 0; // 晚安、呼吸、儀式、紙打開時變暗（由 game.js 決定目標值）
+      this.dim = 0; // 晚安模式時變暗
       this.current = 0;
       this.bg = null;
       this.prevBg = null;
       this.fade = 1;
-      this.depth = 0;
-      this.dockY = null;
-
-      // 日夜與模式：K 值都是 0..1，每一幀慢慢靠近目標，不一下子跳
-      this.phase = null;
-      this.clockT = 0;
-      this.dockT = 1;
-      this.lit = false;
-      this.nightK = 0;
-      this.duskK = 0;
-      this.sleepK = 0;
-      this.hushK = 0;
-      this.hudK = 0;
-      this.snowSpeed = 1;
-      // 由 game.js 每一幀設定
-      this.sleep = false; // 晚安模式
-      this.hush = 0; // 儀式開著：光束收起來
-      this.hushSnow = 1; // 儀式開著時海雪變慢（0.6；危機 0.4）
-      this.hud = true; // HUD 在的時候才畫頂部暗帶
-      this.lamp = null; // 儀式紀錄表的位置 { x, y, w, h }：後面放一盞檯燈
-      this.applyLight();
-    }
-
-    /** 目前幾點（測試或截圖時可以用 World.clock 覆寫） */
-    hourNow() {
-      return World.clock != null ? World.clock : new Date().getHours();
-    }
-
-    /** 暫時把時鐘撥到某個小時（null 恢復正常）。立刻重新判斷是白天還是夜裡 */
-    setClock(hour) {
-      World.clock = hour == null ? null : hour;
-      this.clockT = 0;
-    }
-
-    get night() {
-      return this.nightK > 0.5;
     }
 
     setTheme(id, instant) {
@@ -138,7 +89,8 @@
       this.H = H;
       this.dpr = dpr;
       this.unit = unit;
-      this.layoutFloor();
+      // 海床要高過底部選單，住在沙地上的生物才不會被擋住
+      this.floorY = H - Math.max(U.clamp(H * 0.11, 58, 112), 120);
       this.bg = this.renderBg();
       this.prevBg = null;
       this.fade = 1;
@@ -149,53 +101,9 @@
       this.auroraSprites = null;
     }
 
-    /**
-     * 底座（#dock）上緣的位置。模式切換時底座會用 transform 滑出去，
-     * 所以固定定位時用 offsetTop（不含 transform）；量不到就回傳 null。
-     */
-    measureDock() {
-      const H = this.H;
-      try {
-        const d = document.getElementById('dock');
-        if (!d) return null;
-        const cs = getComputedStyle(d);
-        if (cs.display === 'none') return null;
-        let top = cs.position === 'fixed' ? d.offsetTop : NaN;
-        if (!(top > H * 0.5 && top <= H)) top = d.getBoundingClientRect().top;
-        return top > H * 0.5 && top <= H ? Math.round(top) : null;
-      } catch (e) {
-        return null;
-      }
-    }
-
-    /**
-     * 沙地停在底座上方（DESIGN §8）：floorY 是沙地的後緣，從底座上緣往上算；
-     * 底座下面的沙被底座擋住。手機上海底那一帶比較高，住在沙地上的生物可以前後錯開（depth）。
-     */
-    layoutFloor() {
-      const { W, H } = this;
-      const dock = this.measureDock();
-      this.dockY = dock;
-      if (dock != null) {
-        const phone = Math.min(W, H) < 500;
-        const band = U.clamp(H * (phone ? 0.13 : 0.09), 60, 120);
-        this.floorY = dock - band;
-        this.depth = band * 0.55;
-      } else {
-        // 沒有底座（或量不到）：沿用舊的算法
-        this.floorY = H - Math.max(U.clamp(H * 0.11, 58, 112), 120);
-        this.depth = 0;
-      }
-    }
-
     /** 海床的高度（有起伏） */
     sandY(x) {
       return this.floorY + Math.sin(x * 0.0042 + 1.3) * 5 + Math.sin(x * 0.011 + 0.4) * 2.5;
-    }
-
-    /** 沙地上的某個深度（dz 0 = 後緣，1 = 最靠近玻璃） */
-    groundY(x, dz) {
-      return this.sandY(x) + (dz || 0) * this.depth;
     }
 
     renderBg() {
@@ -215,10 +123,10 @@
       g.fillStyle = grd;
       g.fillRect(0, 0, W, H);
 
-      // 暗角：四角不壓成黑色，偏靛藍
+      // 暗角
       const vg = g.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.25, W / 2, H * 0.5, Math.max(W, H) * 0.8);
-      vg.addColorStop(0, 'rgba(4,8,18,0)');
-      vg.addColorStop(1, 'rgba(4,8,18,0.32)');
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,4,10,0.45)');
       g.fillStyle = vg;
       g.fillRect(0, 0, W, H);
 
@@ -237,7 +145,7 @@
       g.closePath();
       g.fill();
 
-      // 沙地：低彩度的石板藍，和水連成一體
+      // 沙地
       const sg = g.createLinearGradient(0, this.floorY - 8, 0, H);
       sg.addColorStop(0, th.sand[0]);
       sg.addColorStop(1, th.sand[1]);
@@ -384,75 +292,17 @@
       return b;
     }
 
-    /**
-     * 日夜、晚安、儀式對光量的影響（color.md §2.4、§6.2）。每一幀更新，全部平滑過渡。
-     *   rayK   光束係數：白天 1、傍晚 0.8、夜 0.5；晚安與儀式時收到 0
-     *   surfA  水面光：.07／.06／.04；晚安 0
-     *   snowK  海雪量：夜 ×0.6、晚安 ×0.4
-     *   MJ.Bio.k 生物發光：夜 ×0.85、晚安 ×0.6
-     *   dimBase world.dim 的底值：夜 .12（game.js 讀）
-     */
-    applyLight() {
-      const n = this.nightK;
-      const s = this.sleepK;
-      this.rayK = U.lerp(U.lerp(1, 0.8, this.duskK), 0.5, n) * (1 - s) * (1 - this.hushK);
-      this.surfA = U.lerp(U.lerp(0.07, 0.06, this.duskK), 0.04, n) * (1 - s);
-      this.snowK = U.lerp(U.lerp(1, 0.6, n), 0.4, s);
-      this.dimBase = 0.12 * n;
-      if (MJ.Bio) MJ.Bio.k = U.lerp(U.lerp(1, 0.85, n), 0.6, s);
-    }
-
-    updateClock(dt) {
-      this.clockT -= dt;
-      if (this.clockT <= 0 || this.phase == null) {
-        this.clockT = 15;
-        const ph = phaseAt(this.hourNow());
-        if (ph !== this.phase) {
-          this.phase = ph;
-          if (document.body) document.body.classList.toggle('is-night', ph === 'night');
-        }
-      }
-      const nightT = document.body && document.body.classList.contains('is-night') ? 1 : 0;
-      const duskT = this.phase === 'dusk' && !nightT ? 1 : 0;
-      const first = !this.lit;
-      this.lit = true;
-      const ease = (cur, tgt, rate) => (first ? tgt : cur + (tgt - cur) * Math.min(1, dt * rate));
-      // 日夜約 8 秒換過去；晚安 1 秒多；儀式開著時光束 1.2 秒內收起，完成後慢慢回來；HUD 暗帶跟著 HUD 400ms
-      this.nightK = ease(this.nightK, nightT, 0.35);
-      this.duskK = ease(this.duskK, duskT, 0.35);
-      this.sleepK = ease(this.sleepK, this.sleep ? 1 : 0, 0.9);
-      this.hushK = ease(this.hushK, this.hush, this.hush > this.hushK ? 2.5 : 0.8);
-      this.hudK = ease(this.hudK, this.hud ? 1 : 0, 6);
-      this.snowSpeed = ease(this.snowSpeed, this.hushSnow, 1.5);
-      this.applyLight();
-
-      // 底座的位置改變了（例如介面換了版型、手機轉向），沙地跟著移
-      this.dockT -= dt;
-      if (this.dockT <= 0 && this.W) {
-        this.dockT = 1;
-        const d = this.measureDock();
-        if ((d == null) !== (this.dockY == null) || (d != null && Math.abs(d - this.dockY) > 2)) {
-          this.layoutFloor();
-          this.bg = this.renderBg();
-          this.prevBg = null;
-          this.fade = 1;
-        }
-      }
-    }
-
     update(dt, t) {
       this.t = t;
       const { W, H } = this;
-      this.updateClock(dt);
       this.current = (U.noise(t * 0.035) - 0.5) * 2;
       if (this.fade < 1) this.fade = Math.min(1, this.fade + dt / 1.6);
 
       // 海雪
       const cur = this.current * 6;
-      const sp = this.snowSpeed;
       for (const s of this.snow) {
-        s.y += (3 + 7 * s.z) * dt * this.unit * sp;
-        s.x += (Math.sin(t * 0.25 + s.tw) * 2.5 + cur) * s.z * dt * sp;
+        s.y += (3 + 7 * s.z) * dt * this.unit;
+        s.x += (Math.sin(t * 0.25 + s.tw) * 2.5 + cur) * s.z * dt;
         if (s.y > H + 4) {
           s.y = -4;
           s.x = Math.random() * W;
@@ -516,13 +366,6 @@
       } else if (this.drops.length) this.drops.length = 0;
     }
 
-    /** 光束的顏色：夜裡偏向極淡的暖白 */
-    rayColor() {
-      const r = this.theme.ray;
-      const k = this.nightK;
-      return [Math.round(U.lerp(r[0], NIGHT_RAY[0], k)), Math.round(U.lerp(r[1], NIGHT_RAY[1], k)), Math.round(U.lerp(r[2], NIGHT_RAY[2], k))];
-    }
-
     /** 水母後面的一切 */
     drawBack(ctx) {
       const { W, H, t } = this;
@@ -540,12 +383,13 @@
       if (th.fx === 'aurora') this.drawAurora(ctx);
       if (th.fx === 'moon') this.drawMoon(ctx);
 
-      const [r, g, b] = this.rayColor();
       // 光束
-      const rayK = this.rayK * (1 - this.dim);
-      if (th.rayA > 0 && rayK > 0.01) {
+      if (th.rayA > 0) {
+        const [r, g, b] = th.ray;
+        const hour = new Date().getHours();
+        const dayK = hour >= 7 && hour < 18 ? 1.25 : 0.85;
         for (const ray of this.rays) {
-          const a = th.rayA * rayK * (0.55 + 0.45 * Math.sin(t * ray.speed + ray.phase));
+          const a = th.rayA * dayK * (0.55 + 0.45 * Math.sin(t * ray.speed + ray.phase)) * (1 - this.dim);
           if (a < 0.004) continue;
           const x0 = ray.x * W + Math.sin(t * 0.05 + ray.phase) * 20;
           const w0 = ray.w * W;
@@ -565,34 +409,31 @@
         }
       }
 
-      // 水面的光（上限 .07，夜裡 .04）
-      const surf = this.surfA * (1 - this.dim);
-      if (surf > 0.002) {
-        const sgrd = ctx.createLinearGradient(0, 0, 0, 70);
-        sgrd.addColorStop(0, 'rgba(' + r + ',' + g + ',' + b + ',' + surf.toFixed(3) + ')');
-        sgrd.addColorStop(1, 'rgba(' + r + ',' + g + ',' + b + ',0)');
-        ctx.fillStyle = sgrd;
-        ctx.fillRect(0, 0, W, 70);
-        ctx.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + (surf * 0.9).toFixed(3) + ')';
-        ctx.lineWidth = 1;
-        for (let k = 0; k < 2; k++) {
-          ctx.beginPath();
-          for (let x = 0; x <= W; x += 12) {
-            const y = 8 + k * 9 + Math.sin(x * 0.018 + t * (0.8 + k * 0.3) + k * 2) * 2.5 + Math.sin(x * 0.047 - t * 1.1) * 1.2;
-            if (x === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.stroke();
+      // 水面的光
+      const [sr, sg, sb] = th.ray;
+      const sgrd = ctx.createLinearGradient(0, 0, 0, 70);
+      sgrd.addColorStop(0, 'rgba(' + sr + ',' + sg + ',' + sb + ',' + (0.13 * (1 - this.dim)).toFixed(3) + ')');
+      sgrd.addColorStop(1, 'rgba(' + sr + ',' + sg + ',' + sb + ',0)');
+      ctx.fillStyle = sgrd;
+      ctx.fillRect(0, 0, W, 70);
+      ctx.strokeStyle = 'rgba(' + sr + ',' + sg + ',' + sb + ',' + (0.12 * (1 - this.dim)).toFixed(3) + ')';
+      ctx.lineWidth = 1;
+      for (let k = 0; k < 2; k++) {
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 12) {
+          const y = 8 + k * 9 + Math.sin(x * 0.018 + t * (0.8 + k * 0.3) + k * 2) * 2.5 + Math.sin(x * 0.047 - t * 1.1) * 1.2;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
+        ctx.stroke();
       }
 
       // 海底的焦散光斑
       const [lr, lg, lb] = th.sandLine;
-      const ck = (1 - this.sleepK * 0.6) * (1 - this.dim * 0.5);
       for (let i = 0; i < 14; i++) {
         const x = ((i / 14) * W + Math.sin(t * 0.13 + i * 1.7) * 60 + W) % W;
         const y = this.sandY(x) + 6 + (i % 3) * 7;
-        const a = (0.035 + 0.03 * Math.sin(t * 0.7 + i * 2.1)) * ck;
+        const a = 0.035 + 0.03 * Math.sin(t * 0.7 + i * 2.1);
         if (a <= 0) continue;
         ctx.fillStyle = 'rgba(' + lr + ',' + lg + ',' + lb + ',' + a.toFixed(3) + ')';
         ctx.beginPath();
@@ -601,36 +442,22 @@
       }
       ctx.restore();
 
-      // 頂部暗帶：HUD 直接寫在水上，次要字靠它過 AA（全站唯一的介面漸層，理由是可讀性）
-      if (this.hudK > 0.01) {
-        const band = ctx.createLinearGradient(0, 0, 0, 120);
-        band.addColorStop(0, 'rgba(15,22,27,' + (0.4 * this.hudK).toFixed(3) + ')');
-        band.addColorStop(1, 'rgba(15,22,27,0)');
-        ctx.fillStyle = band;
-        ctx.fillRect(0, 0, W, 120);
-      }
-
-      // 海雪（夜裡變少）
+      // 海雪
       const [nr, ng, nb] = th.snow;
-      const total = this.snow.length;
-      const shown = total * this.snowK;
-      for (let i = 0; i < total; i++) {
-        const cut = U.clamp(shown - i, 0, 1);
-        if (cut <= 0) break;
-        const s = this.snow[i];
+      for (const s of this.snow) {
         const tw = 0.6 + 0.4 * Math.sin(this.t * 1.3 + s.tw);
-        const a = (0.1 + 0.35 * s.z) * tw * cut;
+        const a = (0.1 + 0.35 * s.z) * tw;
         if (th.fx === 'abyss' && s.bio) {
           const flash = Math.max(0, Math.sin(this.t * 0.8 + s.tw * 3)) ** 8;
           if (flash > 0.05) {
             ctx.globalCompositeOperation = 'lighter';
-            MJ.glow(ctx, s.x, s.y, 16 * s.z + 6, 195, 0.9, 0.6, flash * 0.7 * cut);
+            U.drawGlow(ctx, s.x, s.y, 16 * s.z + 6, 195, 0.9, 0.6, flash);
             ctx.globalCompositeOperation = 'source-over';
           }
         }
         ctx.fillStyle = 'rgba(' + nr + ',' + ng + ',' + nb + ',' + a.toFixed(3) + ')';
-        const rr = s.r * s.z;
-        ctx.fillRect(s.x - rr, s.y - rr, rr * 2, rr * 2);
+        const r = s.r * s.z;
+        ctx.fillRect(s.x - r, s.y - r, r * 2, r * 2);
       }
 
       // 後排海草
@@ -640,31 +467,14 @@
       this.drawDrops(ctx);
     }
 
-    /** 水母前面的東西：前排海草、氣泡、水面的花瓣；最後是變暗的那一層 */
+    /** 水母前面的東西：前排海草、氣泡、水面的花瓣 */
     drawFront(ctx) {
       for (const w of this.weeds) if (w.front) this.drawWeed(ctx, w);
       this.drawBubbles(ctx);
       if (this.theme.fx === 'petals') this.drawPetals(ctx, true);
-      if (this.dim > 0.002) {
-        // 變暗像沉到更深的水裡，不是拉上一塊黑幕；不模糊、不染暖
-        ctx.fillStyle = 'rgba(4,9,18,' + (this.dim * 0.6).toFixed(3) + ')';
+      if (this.dim > 0) {
+        ctx.fillStyle = 'rgba(1,5,12,' + (this.dim * 0.55).toFixed(3) + ')';
         ctx.fillRect(0, 0, this.W, this.H);
-      }
-      // 儀式開著時，紀錄表後面一圈極淡的暖光，像深夜桌前開了一盞燈（color.md §6.1）。
-      // 暖意只放在這一處，不把整片海染暖
-      const L = this.lamp;
-      if (L && this.hushK > 0.01) {
-        const rx = Math.max(L.w * 0.75, 240);
-        const ry = Math.max(L.h * 0.6, 200);
-        ctx.save();
-        ctx.translate(L.x, L.y);
-        ctx.scale(1, ry / rx);
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-        g.addColorStop(0, 'rgba(235,222,196,' + (0.05 * this.hushK).toFixed(3) + ')');
-        g.addColorStop(1, 'rgba(235,222,196,0)');
-        ctx.fillStyle = g;
-        ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
-        ctx.restore();
       }
     }
 
@@ -708,15 +518,14 @@
         const a = b.big ? 0.6 : 0.4;
         if (b.gold) {
           ctx.globalCompositeOperation = 'lighter';
-          MJ.glow(ctx, b.x, b.y, b.r * 5, 42, 0.7, 0.72, 0.6);
+          U.drawGlow(ctx, b.x, b.y, b.r * 5, 45, 0.9, 0.6, 0.6);
           ctx.globalCompositeOperation = 'source-over';
         }
-        // 金泡泡用「光」的金色（--light #ebcd90）
         ctx.strokeStyle = b.gold
-          ? 'rgba(235,205,144,0.75)'
+          ? 'rgba(255,225,150,0.75)'
           : b.bonus
-          ? U.hsla(this.t * 40 + b.x * 0.5, 0.35, 0.82, 0.8)
-          : 'rgba(205,226,236,' + a + ')';
+          ? U.hsla(this.t * 70 + b.x * 0.5, 0.8, 0.82, 0.8)
+          : 'rgba(205,238,248,' + a + ')';
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.r, 0, U.TAU);
         ctx.stroke();
@@ -735,7 +544,7 @@
         ctx.rotate(p.rot);
         ctx.scale(1, p.surface ? 0.55 : 0.8 + 0.2 * Math.sin(this.t * 2 + p.phase));
         const s = p.size;
-        ctx.fillStyle = U.hsla(p.hue, 0.5, 0.86 * (1 - this.dim * 0.4), p.surface ? 0.85 : 0.7);
+        ctx.fillStyle = U.hsla(p.hue, 0.75, 0.86, p.surface ? 0.85 : 0.7);
         ctx.beginPath();
         ctx.moveTo(0, s);
         ctx.bezierCurveTo(-s * 1.1, s * 0.2, -s * 0.7, -s * 0.9, -s * 0.18, -s * 0.8);
@@ -752,7 +561,7 @@
       ctx.lineWidth = 1;
       for (const d of this.drops) {
         const k = d.age / 1.1;
-        ctx.strokeStyle = 'rgba(200,220,232,' + ((1 - k) * 0.4).toFixed(3) + ')';
+        ctx.strokeStyle = 'rgba(190,225,240,' + ((1 - k) * 0.4).toFixed(3) + ')';
         ctx.beginPath();
         ctx.ellipse(d.x, d.y, 3 + k * 22, (3 + k * 22) * 0.22, 0, 0, U.TAU);
         ctx.stroke();
@@ -764,14 +573,12 @@
       const x = W * 0.74;
       const y = 26;
       const r = Math.min(W, this.H) * 0.06 + 14;
-      const k = (1 - this.dim * 0.5) * (1 - this.sleepK * 0.5);
-      // 月面是一大塊亮白：月面 .32、光暈 .35、月光碎片 .07（color.md §2.7）
-      U.drawGlow(ctx, x, y, r * 9, 215, 0.4, 0.8, 0.35 * k);
+      U.drawGlow(ctx, x, y, r * 9, 215, 0.4, 0.8, 0.55 * (1 - this.dim * 0.5));
       // 從水下看月亮，會被波浪揉得有點歪
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(1 + Math.sin(t * 1.1) * 0.05, 0.62 + Math.sin(t * 0.9 + 1) * 0.04);
-      ctx.fillStyle = 'rgba(236,240,248,' + (0.32 * k).toFixed(3) + ')';
+      ctx.fillStyle = 'rgba(240,244,255,0.5)';
       ctx.beginPath();
       ctx.arc(0, 0, r, 0, U.TAU);
       ctx.fill();
@@ -780,8 +587,8 @@
       for (let i = 0; i < 9; i++) {
         const yy = y + 28 + i * 16 + Math.sin(t * 0.9 + i) * 3;
         const ww = r * (1.4 - i * 0.12) * (0.6 + 0.4 * Math.sin(t * 1.7 + i * 1.3));
-        const a = 0.07 * (1 - i / 9) * k;
-        ctx.fillStyle = 'rgba(226,234,248,' + a.toFixed(3) + ')';
+        const a = 0.09 * (1 - i / 9);
+        ctx.fillStyle = 'rgba(230,238,255,' + a.toFixed(3) + ')';
         ctx.beginPath();
         ctx.ellipse(x + Math.sin(t * 0.6 + i * 0.8) * 10, yy, Math.max(1, ww), 1.6, 0, 0, U.TAU);
         ctx.fill();
@@ -789,29 +596,25 @@
     }
 
     drawAurora(ctx) {
-      const { W } = this;
-      // 流動速度 ×0.7
-      const t = this.t * 0.7;
+      const { W, t } = this;
       if (!this.auroraSprites) {
-        // 飽和度 .9 → .55：全站最亢奮的區塊，降下來
         this.auroraSprites = [150, 175, 290].map((hue) => {
           const c = document.createElement('canvas');
           c.width = 4;
           c.height = 128;
           const g = c.getContext('2d');
           const grd = g.createLinearGradient(0, 0, 0, 128);
-          grd.addColorStop(0, U.hsla(hue, 0.55, 0.6, 0));
-          grd.addColorStop(0.55, U.hsla(hue, 0.55, 0.62, 0.55));
-          grd.addColorStop(0.8, U.hsla(hue + 20, 0.55, 0.7, 0.8));
-          grd.addColorStop(1, U.hsla(hue, 0.55, 0.6, 0));
+          grd.addColorStop(0, U.hsla(hue, 0.9, 0.6, 0));
+          grd.addColorStop(0.55, U.hsla(hue, 0.9, 0.62, 0.55));
+          grd.addColorStop(0.8, U.hsla(hue + 20, 0.9, 0.7, 0.8));
+          grd.addColorStop(1, U.hsla(hue, 0.9, 0.6, 0));
           g.fillStyle = grd;
           g.fillRect(0, 0, 4, 128);
           return c;
         });
       }
       const step = W > 900 ? 7 : 10;
-      // 每道 alpha ×0.6；夜裡再 ×0.5；晚安、變暗時再降
-      const k = 0.6 * (1 - this.nightK * 0.5) * (1 - this.dim * 0.5) * (1 - this.sleepK * 0.6);
+      const k = 1 - this.dim * 0.5;
       for (let band = 0; band < 3; band++) {
         const img = this.auroraSprites[band];
         const baseY = 18 + band * 24;
@@ -829,7 +632,5 @@
   }
 
   World.THEMES = THEMES;
-  World.phaseAt = phaseAt;
-  World.clock = null;
   MJ.World = World;
 })((window.MJ = window.MJ || {}));

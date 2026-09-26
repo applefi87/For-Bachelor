@@ -69,7 +69,7 @@
       const h = this.height(u);
       const sway = Math.sin(this.t * 0.8) * 2 * u;
       const hue = g.hue;
-      const sat = Math.min(g.sat * 0.8, MJ.Bio ? MJ.Bio.satMax : 0.72);
+      const sat = Math.max(0.35, g.sat * 0.8);
 
       // 柄
       ctx.strokeStyle = U.hsla(hue, sat * 0.6, 0.7, 0.5);
@@ -89,7 +89,7 @@
       const ty = by - h;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      (MJ.glow || U.drawGlow)(ctx, tx, ty, (40 + this.progress * 40) * u, hue, sat, 0.62, 0.45 + 0.3 * Math.sin(this.t * 2));
+      U.drawGlow(ctx, tx, ty, (40 + this.progress * 40) * u, hue, sat, 0.62, 0.45 + 0.3 * Math.sin(this.t * 2));
 
       if (this.progress < 0.5) {
         // 水螅體：小杯子加一圈細觸手

@@ -1,9 +1,8 @@
 /*
  * 海月水母館 — 潮汐圖：把心情紀錄攤開來看
  *
- * 抽屜裡的一疊紙（art §5.13）：每一張圖是一張圖版，圖號、圖說在圖的下方。
- * 不下結論，只把你自己的資料擺在你面前：感覺都落在哪裡、陪完之後浪怎麼變、哪一種需要一直出現、你寫給自己的話。
- * 陪完之後的變化：少於 5 次不畫（clinical §7.4）、依使用次數排序、單色長條、方向寫 ↓ ↑，不用紅綠也不用藍橘。
+ * 不下結論，只把你自己的資料擺在你面前：
+ * 感覺都落在哪裡、哪一種陪法對你來說讓浪變小、哪一種需要一直出現、你寫給自己的話。
  */
 (function (MJ) {
   'use strict';
@@ -12,11 +11,14 @@
   const F = MJ.Feelings;
   const esc = U.escape;
   const DAY = 86400000;
+  // 色盲友善的藍橘配對（已用驗證工具在深色底上檢查過）
+  const DOWN = '#3b9fd4';
+  const UP = '#c9772b';
 
   const T = {};
   let range = 30;
   let group = 'all';
-  const MIN_N = 5;
+  const MIN_N = 3;
   const GROUPS = [
     ['all', '全部', () => true],
     ['high', '強的時候', (e) => e.i0 >= 7],
@@ -28,154 +30,135 @@
   T.render = (body) => {
     const Game = MJ.Game;
     const UI = MJ.UI;
-    const P = UI.paper;
-    const { num, plateHead, caption, mmdd } = P;
+    const icon = UI.icon;
     const all = Game.state.entries;
     const list = all.filter(inRange);
-    let html = '<div class="sheaf">';
+    let html = '';
+
+    html += '<div class="seg" role="radiogroup" aria-label="時間範圍">';
+    for (const [v, n] of [[7, '7 天'], [30, '30 天'], [0, '全部']]) {
+      html += '<button class="seg-btn' + (range === v ? ' on' : '') + '" role="radio" aria-checked="' + (range === v) + '" data-range="' + v + '">' + n + '</button>';
+    }
+    html += '</div>';
 
     if (!all.length) {
-      html += '<section class="paper leaf"><p class="empty">此頁空白。</p><div class="btn-row"><button class="btn-2" id="tStart">記下第一筆</button></div></section></div>';
+      html +=
+        '<div class="empty">還沒有任何心情。<br>下次有感覺的時候，按下方的「心情」，把它倒進海裡。</div>' +
+        '<button class="btn wide" id="tStart">現在就試試看</button>';
       body.innerHTML = html;
+      bindRange(body);
       body.querySelector('#tStart').addEventListener('click', () => MJ.Ritual.start());
       return '潮汐圖';
     }
 
-    // 時間範圍：切換檢視，放在紙外面的暗色上
-    html += '<div class="tabs" role="tablist" aria-label="時間範圍">';
-    for (const [v, n] of [[7, num(7) + ' 天'], [30, num(30) + ' 天'], [0, '全部']]) {
-      html += '<button role="tab" class="tab' + (range === v ? ' on' : '') + '" aria-selected="' + (range === v) + '" data-range="' + v + '">' + n + '</button>';
-    }
-    html += '</div>';
-
     const turned = list.filter((e) => e.turn);
     const turnKinds = new Set(turned.map((e) => e.turn));
-    html += '<section class="paper leaf tide-sum"><p class="sum-line">' + (range ? num(range) + ' 天' : '全部') + '　' + num(list.length) + ' 筆　陪法 ' + num(turnKinds.size) + ' 種</p>';
-    if (Game.weekEntries().length) html += '<button class="btn-2" id="tRecap">本週紀錄 →</button>';
-    html += '</section>';
+    html += '<p class="lede">' + (range ? '這 ' + range + ' 天' : '到目前為止') + '，你替 <b>' + list.length + '</b> 份感覺取了名字，用了 <b>' + turnKinds.size + '</b> 種方式陪它們。</p>';
+    if (Game.weekEntries().length) html += '<button class="btn ghost wide" id="tRecap">' + icon('diary') + '這一週的回顧</button>';
 
-    let plate = 0;
-    let fig = 0;
+    /* 1. 海的地圖：情緒環狀模型 */
+    html += '<h3 class="sub-h">感覺都落在哪裡</h3>';
+    html += mapSVG(list);
 
-    /* 1. 感覺都落在哪裡：情緒環狀模型 */
-    html += '<section class="paper leaf framed">' + plateHead(++plate, '感覺都落在哪裡');
-    html += '<div class="chart" data-chart="map"></div>';
-    html += caption(++fig, '感覺的落點。橫軸：不舒服～舒服；縱軸：安靜～激動。圓的面積＝次數。') + '</section>';
-
-    /* 2. 陪完之後，浪的變化 */
+    /* 2. 哪一種陪法，讓浪變小 */
     // 強度很高的時候，下一次量本來就容易低一點（回歸平均數），所以可以分開看強的和不那麼強的時候
     const gf = (GROUPS.find((g) => g[0] === group) || GROUPS[0])[2];
     const neg = turned.filter((e) => !F.isPositive(e.fam) && e.i0 != null && e.i1 != null && gf(e));
     const byTurn = {};
     for (const e of neg) (byTurn[e.turn] = byTurn[e.turn] || []).push(e.i1 - e.i0);
-    const stats = Object.keys(byTurn)
-      .filter((t) => F.TURNS[t])
-      .map((t) => ({
-        t,
-        n: byTurn[t].length,
-        down: byTurn[t].filter((x) => x < 0).length,
-        avg: byTurn[t].reduce((a, b) => a + b, 0) / byTurn[t].length,
-      }));
-    // 依使用次數排序，不依效果排序：這張圖不是在比哪一種比較有效
-    const byUse = (a, b) => b.n - a.n || F.TURN_IDS.indexOf(a.t) - F.TURN_IDS.indexOf(b.t);
-    const rows = stats.filter((r) => r.n >= MIN_N).sort(byUse);
-    const few = stats.filter((r) => r.n < MIN_N).sort(byUse);
-    html += '<div class="tabs" role="tablist" aria-label="哪些時候">';
-    for (const [id, name] of GROUPS) html += '<button role="tab" class="tab' + (group === id ? ' on' : '') + '" aria-selected="' + (group === id) + '" data-group="' + id + '">' + name + '</button>';
+    const all3 = Object.keys(byTurn).map((t) => ({
+      t,
+      n: byTurn[t].length,
+      down: byTurn[t].filter((x) => x < 0).length,
+      avg: byTurn[t].reduce((a, b) => a + b, 0) / byTurn[t].length,
+    }));
+    const rows = all3.filter((r) => r.n >= MIN_N).sort((a, b) => a.avg - b.avg);
+    const few = all3.filter((r) => r.n < MIN_N);
+    html += '<h3 class="sub-h">對你來說，哪一種陪法讓浪變小</h3>';
+    html += '<div class="seg wrap" role="radiogroup" aria-label="哪些時候">';
+    for (const [id, name] of GROUPS) html += '<button class="seg-btn' + (group === id ? ' on' : '') + '" role="radio" aria-checked="' + (group === id) + '" data-group="' + id + '">' + name + '</button>';
     html += '</div>';
-    html += '<section class="paper leaf framed">' + plateHead(++plate, '陪完之後，浪的變化');
     if (rows.length) {
-      html += '<div class="chart" data-chart="change"></div>';
-      html += caption(++fig, '上：陪完後浪的平均變化。下：變小的次數。「強的時候」是一開始 ' + num(7) + ' 以上。浪大時下一次量本來就容易變低，所以分開看。');
-    } else html += '<p class="plate-lede">' + (neg.length ? '同一種陪法滿 ' + num(MIN_N) + ' 次後顯示。' : '不舒服的感覺陪完幾次之後，這裡會出現你自己的紀錄。') + '</p>';
-    if (few.length) html += '<p class="note">還不到 ' + num(MIN_N) + ' 次：' + few.map((r) => F.TURNS[r.t].name + '（' + num(r.n) + '）').join('、') + '</p>';
-    html += '</section>';
+      html += changeSVG(rows);
+      html += '<p class="note">數字是陪完之後，強度平均變了多少；下面一行是有幾次真的變小。「強的時候」是一開始 7 以上，「不那麼強」是 6 以下。浪很大的時候，下一次量本來就容易低一點，分開看會比較公平。</p>';
+    } else html += '<p class="note">' + (neg.length ? '同一種陪法用過三次以上，這裡才會出現。' : '不舒服的感覺陪完幾次之後，這裡會出現你自己的答案。') + '</p>';
+    if (few.length) html += '<p class="note">還不到三次：' + few.map((r) => F.TURNS[r.t].name + '（' + r.n + '）').join('、') + '</p>';
 
     /* 3. 感覺在替你在乎的事 */
     const needCount = {};
-    for (const e of turned) if (e.turn === 'need') for (const n of e.needs || []) if (F.NEEDS[n]) needCount[n] = (needCount[n] || 0) + 1;
+    for (const e of turned) if (e.turn === 'need') for (const n of e.needs || []) needCount[n] = (needCount[n] || 0) + 1;
     const needRows = Object.keys(needCount)
       .map((n) => ({ n, c: needCount[n] }))
       .sort((a, b) => b.c - a.c);
     if (needRows.length) {
-      html += '<section class="paper leaf framed">' + plateHead(++plate, '感覺在替你在乎的事') + '<div class="chart" data-chart="need"></div>';
-      html += caption(++fig, '「聽聽它要什麼」選過的需要，以及次數。');
-      if (F.NEED_QUESTIONS[needRows[0].n]) html += '<p class="plate-q">' + esc(F.NEED_QUESTIONS[needRows[0].n]) + '</p>';
-      html += '</section>';
+      html += '<h3 class="sub-h">感覺在替你在乎的事</h3>' + needSVG(needRows);
+      html += '<p class="sea-q">' + esc(F.NEED_QUESTIONS[needRows[0].n]) + '</p>';
     }
 
-    /* 4. 你用過的字：像書後面的索引 */
+    /* 4. 最常用的字 */
     const wc = {};
     for (const e of list) for (const w of e.words || []) wc[w] = (wc[w] || 0) + 1;
     const words = Object.keys(wc)
       .sort((a, b) => wc[b] - wc[a])
       .slice(0, 12);
-    const distinct = new Set([].concat(...all.map((e) => e.words || []))).size;
-    if (words.length) {
-      html += '<section class="paper leaf"><header class="ph"><h3 class="ph-t">你用過的字</h3></header><ul class="idx">';
-      for (const w of words) html += '<li><span>' + esc(w) + '</span>' + num(wc[w]) + '</li>';
-      html += '</ul><p class="note">到目前為止，你用過 ' + num(distinct) + ' 個不同的字描述自己的感覺。</p></section>';
+    html += '<h3 class="sub-h">你用過的字</h3><div class="chips">';
+    for (const w of words) {
+      const f = F.FAMILIES[F.familyOf(w)];
+      html += '<span class="chip"><i class="sw" style="background:hsl(' + f.hue + ',' + Math.round(Math.max(0.3, f.sat) * 100) + '%,65%)"></i>' + esc(w) + '<small class="cnt">' + wc[w] + '</small></span>';
     }
+    const distinct = new Set([].concat(...all.map((e) => e.words || []))).size;
+    html += '</div><p class="note">到目前為止，你用過 ' + distinct + ' 個不同的字描述自己的感覺。</p>';
 
     /* 5. 還在漂的幼生 */
     const larvae = all.filter((e) => !e.turn);
     if (larvae.length) {
-      html += '<section class="paper leaf"><header class="ph"><h3 class="ph-t">還在漂的幼生</h3></header><ul class="rows act-rows">';
+      html += '<h3 class="sub-h">還在漂的幼生</h3><ul class="rows">';
       for (const e of larvae.slice(-6).reverse()) {
-        html += '<li class="row"><div class="row-main"><span class="rec-words">' + P.wordsHTML(e) + '</span><span class="label">' + num(mmdd(e.t)) + (e.i0 != null ? '　' + P.waveKey(e) + ' ' + num(e.i0) : '') + '</span></div>';
-        html += '<button class="btn-2" data-resume="' + e.id + '">陪它</button></li>';
+        html += '<li class="row">' + '<span class="eco-badge sm" style="--h:' + F.FAMILIES[e.fam].hue + '">' + icon('larva') + '</span>';
+        html += '<div class="row-main"><div class="row-title">' + e.words.map((w) => '「' + esc(w) + '」').join('') + '</div><div class="row-sub">' + fmtDate(e.t) + (e.i0 != null ? '・浪 ' + e.i0 : '') + '</div></div>';
+        html += '<button class="btn sm ghost" data-resume="' + e.id + '">陪它</button></li>';
       }
-      html += '</ul></section>';
+      html += '</ul>';
     }
 
-    /* 6. 海龜背上的小事 */
+    /* 6. 背上的小事 */
     const steps = all.filter((e) => e.turn === 'step' && e.step && e.step.status === 'pending');
     if (steps.length) {
-      html += '<section class="paper leaf"><header class="ph"><h3 class="ph-t">海龜背上的小事</h3></header><ul class="rows act-rows">';
+      html += '<h3 class="sub-h">海龜背上的小事</h3><ul class="rows">';
       for (const e of steps.slice(-6).reverse()) {
-        // 危機紀錄不重現原文
-        const what = e.crisis || !e.step.what ? '一件小事' : '<span class="hand">' + esc(e.step.what) + '</span>';
-        html += '<li class="row"><div class="row-main"><span class="act-t">' + what + '</span><span class="label">' + num(mmdd(e.t)) + '　想在「' + (F.STEP_WHEN[e.step.when] || F.STEP_WHEN.now).name + '」做</span></div>';
-        html += '<button class="btn-2" data-done="' + e.id + '">做到了</button></li>';
+        html += '<li class="row"><span class="eco-badge sm" style="--h:' + F.TURNS.step.hue + '">' + icon('step') + '</span>';
+        html += '<div class="row-main"><div class="row-title">' + esc(e.step.what) + '</div><div class="row-sub">' + fmtDate(e.t) + '・想在「' + F.STEP_WHEN[e.step.when].name + '」做</div></div>';
+        html += '<button class="btn sm" data-done="' + e.id + '">做到了</button></li>';
       }
-      html += '</ul></section>';
+      html += '</ul>';
     }
 
-    /* 7. 你寫給自己的話：危機紀錄的原文永遠不重現 */
-    const said = all.filter((e) => !e.crisis && e.text && P.SAID_TURNS.includes(e.turn)).slice(-12).reverse();
+    /* 7. 你寫給自己的話 */
+    const said = all.filter((e) => !e.crisis && e.text && ['reframe', 'kind', 'savor', 'thank', 'keep', 'need'].includes(e.turn)).slice(-12).reverse();
     if (said.length) {
-      html += '<section class="paper leaf"><header class="ph"><h3 class="ph-t">你寫給自己的話</h3></header><ul class="memos">';
-      for (const e of said) html += P.memo(e);
-      html += '</ul></section>';
+      html += '<h3 class="sub-h">你寫給自己的話</h3><ul class="said-list">';
+      for (const e of said) {
+        const t = F.TURNS[e.turn];
+        const label = e.turn === 'reframe' ? F.LENSES[e.lens].name : t.name;
+        html += '<li style="--h:' + t.hue + '"><span class="said-meta"><i></i>' + fmtDate(e.t) + '・' + label + '・「' + esc(e.words[0]) + '」</span>' + esc(e.text) + '</li>';
+      }
+      html += '</ul>';
     }
 
     /* 8. 珍珠盒 */
     const pearls = Game.eco.pearls();
     if (pearls.length) {
-      html += '<section class="paper leaf framed">' + plateHead(++plate, '珍珠盒', num(pearls.length) + ' 顆') + '<ul class="pbox">';
+      html += '<h3 class="sub-h">珍珠盒</h3><div class="pearl-box">';
       pearls.forEach((p, i) => {
-        html += '<li><button class="pearl-item" data-pearl="' + i + '" aria-label="「' + F.FAMILIES[p.fam].name + '」的珍珠，' + p.layers.length + ' 層"><span class="win"><canvas data-layers="' + p.layers.join(',') + '" aria-hidden="true"></canvas></span>';
-        html += '<span class="pearl-n">' + P.famDot(p.fam) + F.FAMILIES[p.fam].name + '</span><span class="label">' + num(p.layers.length) + ' 層</span></button></li>';
+        html += '<button class="pearl-item" data-pearl="' + i + '"><canvas width="64" height="64" data-layers="' + p.layers.join(',') + '" aria-hidden="true"></canvas><span>' + F.FAMILIES[p.fam].name + '</span></button>';
       });
-      html += '</ul>' + caption(++fig, '同一種感覺結成的珍珠。點一顆看剖面。') + '</section>';
+      html += '</div>';
     }
 
-    html += '</div><div class="paper tip" id="tTip" role="tooltip" hidden></div>';
+    html += '<div class="tip" id="tTip" role="tooltip" hidden></div>';
     body.innerHTML = html;
 
-    // 圖依紙的實際寬度畫：SVG 不縮放，字級維持 13／12px
-    body.querySelectorAll('[data-chart]').forEach((el) => {
-      const W = Math.max(260, Math.floor(el.clientWidth) || 320);
-      const k = el.dataset.chart;
-      el.innerHTML = k === 'map' ? mapSVG(list, W) : k === 'change' ? changeSVG(rows, W) : needSVG(needRows, W);
-    });
-
-    body.querySelectorAll('[data-range]').forEach((b) =>
-      b.addEventListener('click', () => {
-        range = +b.dataset.range;
-        MJ.UI.rerender();
-      })
-    );
+    bindRange(body);
     const rc = body.querySelector('#tRecap');
     if (rc) rc.addEventListener('click', () => UI.recapModal());
     body.querySelectorAll('[data-group]').forEach((b) =>
@@ -196,13 +179,27 @@
         Game.setStep(b.dataset.done, 'done');
       })
     );
-    body.querySelectorAll('canvas[data-layers]').forEach((c) => UI.drawPearl(c, c.dataset.layers.split(','), Math.round(c.parentNode.clientWidth) || 72));
+    body.querySelectorAll('canvas[data-layers]').forEach((c) => UI.drawPearl(c, c.dataset.layers.split(','), 64));
     body.querySelectorAll('[data-pearl]').forEach((b) => b.addEventListener('click', () => UI.pearlModal(pearls[+b.dataset.pearl])));
     bindTips(body);
     return '潮汐圖';
   };
 
-  /** 提示框：滑過或聚焦在資料點上時出現（紙色、1px 印刷墨框、直角） */
+  function bindRange(body) {
+    body.querySelectorAll('[data-range]').forEach((b) =>
+      b.addEventListener('click', () => {
+        range = +b.dataset.range;
+        MJ.UI.rerender();
+      })
+    );
+  }
+
+  function fmtDate(ts) {
+    const d = new Date(ts);
+    return d.getMonth() + 1 + '/' + d.getDate();
+  }
+
+  /** 提示框：滑過或聚焦在資料點上時出現 */
   function bindTips(body) {
     const tip = body.querySelector('#tTip');
     if (!tip) return;
@@ -233,17 +230,15 @@
     });
   }
 
-  const svgOpen = (W, H, label) => '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + label + '">';
-
-  /** 情緒環狀模型：橫軸舒服與否、縱軸激動與否；每個家族一顆實心圓，面積＝次數，名字直接標在旁邊 */
-  function mapSVG(list, W) {
-    const H = Math.round(Math.min(W * 0.82, 320));
-    const padX = 40;
-    const padY = 32;
+  /** 情緒環狀模型：橫軸舒服與否、縱軸激動與否；每個家族一顆泡泡，名字直接標在旁邊 */
+  function mapSVG(list) {
+    const W = 340;
+    const H = 300;
+    const pad = 34;
     const cx = W / 2;
     const cy = H / 2;
-    const sx = (v) => cx + v * (W / 2 - padX);
-    const sy = (a) => cy - a * (H / 2 - padY);
+    const sx = (v) => cx + v * (W / 2 - pad);
+    const sy = (a) => cy - a * (H / 2 - pad);
     const stats = {};
     for (const e of list) {
       if (!F.FAMILIES[e.fam]) continue;
@@ -255,13 +250,13 @@
       }
     }
     const max = Math.max(1, ...Object.values(stats).map((s) => s.n));
-    let svg = svgOpen(W, H, '感覺落在情緒地圖上的位置');
-    svg += '<line x1="0" y1="' + cy + '" x2="' + W + '" y2="' + cy + '" class="axis"/>';
-    svg += '<line x1="' + cx + '" y1="0" x2="' + cx + '" y2="' + H + '" class="axis"/>';
-    svg += '<text x="0" y="' + (cy - 8) + '" class="ax-lbl">不舒服</text>';
-    svg += '<text x="' + W + '" y="' + (cy - 8) + '" class="ax-lbl" text-anchor="end">舒服</text>';
-    svg += '<text x="' + (cx + 8) + '" y="13" class="ax-lbl">激動</text>';
-    svg += '<text x="' + (cx + 8) + '" y="' + (H - 3) + '" class="ax-lbl">安靜</text>';
+    let svg = '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="感覺落在情緒地圖上的位置">';
+    svg += '<line x1="12" y1="' + cy + '" x2="' + (W - 12) + '" y2="' + cy + '" class="axis"/>';
+    svg += '<line x1="' + cx + '" y1="12" x2="' + cx + '" y2="' + (H - 12) + '" class="axis"/>';
+    svg += '<text x="12" y="' + (cy - 6) + '" class="ax-lbl">不舒服</text>';
+    svg += '<text x="' + (W - 12) + '" y="' + (cy - 6) + '" class="ax-lbl" text-anchor="end">舒服</text>';
+    svg += '<text x="' + (cx + 6) + '" y="20" class="ax-lbl">激動</text>';
+    svg += '<text x="' + (cx + 6) + '" y="' + (H - 8) + '" class="ax-lbl">平靜</text>';
     for (const id of F.FAMILY_IDS) {
       const f = F.FAMILIES[id];
       const s = stats[id];
@@ -269,89 +264,97 @@
       const y = sy(f.a);
       if (!s) {
         svg += '<circle cx="' + x + '" cy="' + y + '" r="3" class="ghost-dot"/>';
-        svg += '<text x="' + x + '" y="' + (y + 17) + '" class="ax-lbl" text-anchor="middle">' + f.name + '</text>';
+        svg += '<text x="' + x + '" y="' + (y + 16) + '" class="ax-lbl" text-anchor="middle">' + f.name + '</text>';
         continue;
       }
-      // 面積與次數成正比，半徑 3–20
-      const r = Math.max(3, 20 * Math.sqrt(s.n / max));
-      const avg = s.m ? '，平均浪 ' + (s.sum / s.m).toFixed(1) : '';
-      const paint = id === 'fog' ? 'class="pt fog" style="stroke:var(--fp-fog)"' : 'class="pt" style="fill:var(--fp-' + id + ')"';
-      // 落在縱軸上的（說不上來）把名字標在右上，不壓在軸線上
-      const onAxis = Math.abs(f.v) < 0.1;
-      const lbl = onAxis
-        ? '<text x="' + (x + r + 6) + '" y="' + (y - r - 4) + '" class="b-lbl">'
-        : '<text x="' + x + '" y="' + (y + r + 16) + '" class="b-lbl" text-anchor="middle">';
+      const r = 6 + Math.sqrt(s.n / max) * 12;
+      const avg = s.m ? '，平均強度 ' + (s.sum / s.m).toFixed(1) : '';
       svg +=
         '<g class="bubble" tabindex="0" data-tip="' + f.name + '：' + s.n + ' 次' + avg + '">' +
-        '<circle cx="' + x + '" cy="' + y + '" r="' + (r + 8) + '" fill="transparent"/>' +
-        '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" ' + paint + '/>' +
-        lbl + f.name + ' <tspan class="b-num">' + s.n + '</tspan></text></g>';
+        '<circle cx="' + x + '" cy="' + y + '" r="' + (r + 10) + '" fill="transparent"/>' +
+        '<circle cx="' + x + '" cy="' + y + '" r="' + (r + 2) + '" class="ring"/>' +
+        '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="hsl(' + f.hue + ',' + Math.round(Math.max(0.3, f.sat) * 100) + '%,58%)" fill-opacity="0.8"/>' +
+        '<text x="' + x + '" y="' + (y + r + 13) + '" class="b-lbl" text-anchor="middle">' + f.name + ' ' + s.n + '</text></g>';
     }
-    return svg + '</svg>';
+    svg += '</svg></div>';
+    return svg;
   }
 
-  /** ↓ 0.8（浪變小）、↑ 0.4（浪變大）；不用顏色表示好壞 */
-  const dirText = (d) => (Math.abs(d) < 0.05 ? '0.0' : (d > 0 ? '↓ ' : '↑ ') + Math.abs(d).toFixed(1));
+  const roundBar = (x0, y, len, h, dir) => {
+    // 基線那一端是平的、資料那一端是圓角
+    const rr = Math.min(4, len / 2);
+    if (dir > 0) {
+      const x1 = x0 + len;
+      return 'M' + x0 + ',' + y + 'H' + (x1 - rr) + 'Q' + x1 + ',' + y + ' ' + x1 + ',' + (y + rr) + 'V' + (y + h - rr) + 'Q' + x1 + ',' + (y + h) + ' ' + (x1 - rr) + ',' + (y + h) + 'H' + x0 + 'Z';
+    }
+    const x1 = x0 - len;
+    return 'M' + x0 + ',' + y + 'H' + (x1 + rr) + 'Q' + x1 + ',' + y + ' ' + x1 + ',' + (y + rr) + 'V' + (y + h - rr) + 'Q' + x1 + ',' + (y + h) + ' ' + (x1 + rr) + ',' + (y + h) + 'H' + x0 + 'Z';
+  };
 
   /**
-   * 陪完之後浪的變化。往右是浪變小，往左是浪變大；左右同一把尺，長條同一個顏色。
-   * 左欄是陪法名，下一行是「變小的次數/總次數」。
+   * 陪完之後浪的變化。往右是浪變小（藍），往左是浪變大（橘）。
+   * 左右用同一把尺；數值標在長條的尾端。
    */
-  function changeSVG(rows, W) {
-    const rowH = 52;
-    const nameW = 116;
-    const valRoom = 44;
+  function changeSVG(rows) {
+    const W = 340;
+    const rowH = 40;
+    const nameW = 100;
+    const labelRoom = 58;
+    const H = rows.length * rowH + 26;
     const drops = rows.map((r) => -r.avg);
     const maxDown = Math.max(0, ...drops);
     const maxUp = Math.max(0, ...drops.map((d) => -d));
-    const avail = W - nameW - valRoom - (maxUp > 0 ? valRoom : 8);
-    // 分母至少 2：平均只變 0.2 的時候，長條不會被放大到滿版
-    const scale = avail / Math.max(maxDown + maxUp, 2);
-    const base = nameW + (maxUp > 0 ? valRoom + maxUp * scale : 8);
-    const H = rows.length * rowH + 28;
-    let svg = svgOpen(W, H, '每一種陪法之後，浪平均的變化');
-    svg += '<line x1="' + base + '" y1="0" x2="' + base + '" y2="' + (H - 24) + '" class="axis"/>';
-    svg += '<text x="' + (base + 6) + '" y="' + (H - 6) + '" class="ax-lbl">浪變小 →</text>';
-    if (maxUp > 0) svg += '<text x="' + (base - 6) + '" y="' + (H - 6) + '" class="ax-lbl" text-anchor="end">← 變大</text>';
+    const upRoom = maxUp > 0 ? 64 : 0;
+    const base = nameW + upRoom;
+    const scale = Math.min((W - base - labelRoom) / Math.max(maxDown, 0.5), maxUp > 0 ? (upRoom - 34) / maxUp : Infinity);
+    let svg = '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="每一種陪法之後，強度平均變化">';
+    svg += '<line x1="' + base + '" y1="2" x2="' + base + '" y2="' + (H - 20) + '" class="axis"/>';
+    svg += '<text x="' + (base + 4) + '" y="' + (H - 4) + '" class="ax-lbl">浪變小 →</text>';
+    if (upRoom) svg += '<text x="' + (base - 4) + '" y="' + (H - 4) + '" class="ax-lbl" text-anchor="end">← 變大</text>';
     rows.forEach((r, i) => {
-      const y = 4 + i * rowH;
+      const y = 6 + i * rowH;
       const t = F.TURNS[r.t];
       const d = -r.avg;
-      const len = Math.max(1, Math.abs(d) * scale);
-      const right = d >= 0;
-      const val = dirText(d);
-      svg += '<g class="bar-row" tabindex="0" data-tip="' + t.name + '：' + r.n + ' 次裡有 ' + r.down + ' 次變小，浪平均 ' + val + '">';
-      svg += '<rect x="0" y="' + y + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>';
-      svg += '<text x="0" y="' + (y + 17) + '" class="b-name">' + t.name + '</text>';
-      svg += '<text x="0" y="' + (y + 36) + '" class="b-sub">' + r.down + '/' + r.n + ' 次變小</text>';
-      svg += '<rect class="b-bar" x="' + (right ? base : base - len) + '" y="' + (y + 6) + '" width="' + len + '" height="12"/>';
-      const tx = right ? base + len + 6 : base - len - 6;
-      svg += '<text x="' + tx + '" y="' + (y + 16) + '" class="b-val" text-anchor="' + (right ? 'start' : 'end') + '">' + val + '</text>';
+      const len = Math.max(2, Math.abs(d) * scale);
+      const dir = d >= 0 ? 1 : -1;
+      const color = d > 0 ? DOWN : d < 0 ? UP : '#6f909c';
+      const val = (d > 0 ? '−' : d < 0 ? '+' : '±') + Math.abs(d).toFixed(1);
+      svg += '<g class="bar-row" tabindex="0" data-tip="' + t.name + '：' + r.n + ' 次裡有 ' + r.down + ' 次變小，強度平均 ' + val + '">';
+      svg += '<rect x="0" y="' + (y - 5) + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>';
+      svg += '<circle cx="6" cy="' + (y + 7) + '" r="4" fill="hsl(' + t.hue + ',70%,62%)"/>';
+      svg += '<text x="16" y="' + (y + 11) + '" class="b-name">' + t.name + '</text>';
+      svg += '<text x="16" y="' + (y + 26) + '" class="b-sub">' + r.down + '/' + r.n + ' 次變小</text>';
+      svg += '<path d="' + roundBar(base, y, len, 14, dir) + '" fill="' + color + '"/>';
+      const tx = dir > 0 ? base + len + 5 : base - len - 5;
+      svg += '<text x="' + tx + '" y="' + (y + 11) + '" class="b-val" text-anchor="' + (dir > 0 ? 'start' : 'end') + '">' + val + '</text>';
       svg += '</g>';
     });
-    return svg + '</svg>';
+    svg += '</svg></div>';
+    return svg;
   }
 
-  /** 需要：單一系列，單色長條 */
-  function needSVG(rows, W) {
-    const rowH = 32;
-    const left = 88;
-    const H = rows.length * rowH;
+  /** 需要：每一群燈籠魚有多大 */
+  function needSVG(rows) {
+    const W = 340;
+    const rowH = 26;
+    const left = 84;
+    const H = rows.length * rowH + 6;
     const max = Math.max(...rows.map((r) => r.c));
     const scale = (W - left - 40) / max;
-    let svg = svgOpen(W, H, '各種需要出現的次數');
-    svg += '<line x1="' + left + '" y1="0" x2="' + left + '" y2="' + H + '" class="axis"/>';
+    let svg = '<div class="chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="各種需要出現的次數">';
     rows.forEach((r, i) => {
       const n = F.NEEDS[r.n];
-      const y = i * rowH;
-      const len = Math.max(2, r.c * scale);
-      svg += '<g class="bar-row" tabindex="0" data-tip="' + n.name + '：' + r.c + ' 次">';
-      svg += '<rect x="0" y="' + y + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>';
-      svg += '<text x="0" y="' + (y + 21) + '" class="b-name">' + n.name + '</text>';
-      svg += '<rect class="b-bar" x="' + left + '" y="' + (y + 10) + '" width="' + len + '" height="12"/>';
-      svg += '<text x="' + (left + len + 6) + '" y="' + (y + 20) + '" class="b-val">' + r.c + '</text></g>';
+      const y = 6 + i * rowH;
+      const len = Math.max(4, r.c * scale);
+      svg += '<g tabindex="0" data-tip="' + n.name + '：' + r.c + ' 次">';
+      svg += '<rect x="0" y="' + (y - 5) + '" width="' + W + '" height="' + rowH + '" fill="transparent"/>';
+      svg += '<circle cx="6" cy="' + (y + 6) + '" r="4" fill="hsl(' + n.hue + ',80%,62%)"/>';
+      svg += '<text x="16" y="' + (y + 10) + '" class="b-name">' + n.name + '</text>';
+      svg += '<path d="' + roundBar(left, y, len, 12, 1) + '" fill="' + DOWN + '"/>';
+      svg += '<text x="' + (left + len + 6) + '" y="' + (y + 10) + '" class="b-val">' + r.c + '</text></g>';
     });
-    return svg + '</svg>';
+    svg += '</svg></div>';
+    return svg;
   }
 
   MJ.Tides = T;

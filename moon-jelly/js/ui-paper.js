@@ -1,197 +1,56 @@
-/* 海月水母館 — 紙：使用者留下、可以重讀的東西。
- * 紀錄卡、圖鑑（目次＋圖版）、天氣紀錄、海的來信、瓶中紙條、你的瓶中信、珍珠、本週紀錄、成就（檢核表）。
- *
- * 紙是一個有四個邊的物件，四周一定看得到暗色（DESIGN.md §2、§3.2）。
- * 系統的字是印刷的（明體，由 .paper 套用）；只有使用者自己打的句子用手寫體；數字等寬。
- * 紙上的強調就是使用者的墨水（--pen），不用 --accent。 */
+/* 海月水母館 — 紙：圖鑑、心情日記、歡迎、回來、海的來信、新生命、紀錄卡、珍珠、每週回顧 */
 (function (MJ) {
   'use strict';
 
   const UI = MJ.UI;
   const RENDER = UI.RENDER;
-  const { U, Gn, C, A, F, esc, $, portraitImg } = UI.h;
+  const { U, Gn, C, A, F, esc, icon, $, noteName, dateStr, starsHTML, colorCss, portraitImg, traitChips, timeStr, famChip, turnChip, SPECIES_ICON, SPECIES_HUE, KIND_SPECIES } = UI.h;
   let Game = null;
   UI.onInit((g) => (Game = g));
 
-  /* ================================================================
-   * 共用的小工具（tides.js 也用：UI.paper）
-   * ================================================================ */
-
-  const p2 = (n) => String(n).padStart(2, '0');
-  const num = (s) => '<span class="num">' + s + '</span>';
-  /** 欄位日期：09.25；不是今年的加年份 */
-  const mmdd = (ts) => {
-    const d = new Date(ts);
-    const md = p2(d.getMonth() + 1) + '.' + p2(d.getDate());
-    return d.getFullYear() === new Date().getFullYear() ? md : d.getFullYear() + '.' + md;
-  };
-  const hhmm = (ts) => {
-    const d = new Date(ts);
-    return p2(d.getHours()) + ':' + p2(d.getMinutes());
-  };
-  const stamp = (ts) => mmdd(ts) + ' ' + hhmm(ts);
-  const ymd = (ts) => {
-    const d = new Date(ts);
-    return d.getFullYear() + '.' + p2(d.getMonth() + 1) + '.' + p2(d.getDate());
-  };
-  /** 句子裡的日期：9 月 25 日 */
-  const dayStr = (ts) => {
-    const d = new Date(ts);
-    return d.getMonth() + 1 + ' 月 ' + d.getDate() + ' 日';
-  };
-
-  /** 一個字屬於哪個家族：先看 60 個字，再看家族名本身 */
-  const famOf = (w, fallback) => F.familyOf(w) || F.FAMILY_IDS.find((id) => F.FAMILIES[id].name === w) || fallback || 'fog';
-  /** 紙上的家族色點（顏料色），永遠搭配名字；「說不上來」是虛線圈 */
-  const famDot = (id) => '<i class="dot' + (id === 'fog' ? ' fog' : '') + '" style="--c:var(--fp-' + id + ')" aria-hidden="true"></i>';
-  const wordsHTML = (e) => (e.words || []).map((w) => '<span class="w">' + famDot(famOf(w, e.fam)) + esc(w) + '</span>').join('');
-
-  /** 浪 8 → 5；舒服的感覺用「亮」；沒量寫「未量」 */
-  const waveKey = (e) => (F.isPositive(e.fam) ? '亮' : '浪');
-  const waveVal = (e) => {
-    if (!e.turn || e.i1 == null) return e.i0 == null ? '未量' : num(e.i0);
-    return e.i0 == null ? '未量 ' + num('→ ' + e.i1) : num(e.i0 + ' → ' + e.i1);
-  };
-
-  /** 每一筆心情的編號：No. 18（不補零）。存檔裡的順序＋1 */
-  const entryNo = (e) => {
-    if (e.no != null) return e.no;
-    const i = Game.state.entries.findIndex((x) => x.id === e.id);
-    return i >= 0 ? i + 1 : Game.state.entries.length + 1;
-  };
-
-  /** 學名：屬名、種名斜體；科以上正體。珊瑚、瓶中信、幼生不加 */
-  const LATIN = { jelly: 'Aurelia aurita', crab: 'Paguroidea', lantern: 'Myctophidae', clown: 'Amphiprion', turtle: 'Chelonioidea', seahorse: 'Hippocampus', tears: 'Noctiluca scintillans', oyster: 'Pinctada', octopus: 'Octopus' };
-  const latinOf = (id) => {
-    const d = F.SPECIES[id];
-    const s = (d && d.latin) || LATIN[id];
-    if (!s) return '';
-    const up = /(idae|oidea|inae|formes)$/.test(s);
-    return '<span class="latin' + (up ? ' up' : '') + '" lang="la">' + esc(s) + '</span>';
-  };
-
-  /** 圖版的頁首：「圖版 1　顏色　　　3/13」 */
-  const plateHead = (no, title, right) =>
-    '<header class="ph">' + (no != null ? '<span class="label">圖版 ' + num(no) + '</span>' : '') + '<h3 class="ph-t">' + title + '</h3>' + (right ? '<span class="ph-n">' + right + '</span>' : '') + '</header>';
-  /** 圖說：圖號等寬，放在圖的下方 */
-  const caption = (no, text) => '<p class="caption">' + (no != null ? '圖 ' + num(no) + '　' : '') + text + '</p>';
-  /** 信頭：標題＋行尾的日期或編號；sub 是第二行的欄位 */
-  const letterhead = (title, right, sub) =>
-    '<header class="lh"><h2 class="lh-t">' + title + '</h2>' + (right ? '<span class="lh-m">' + right + '</span>' : '') + (sub ? '<p class="lh-s">' + sub + '</p>' : '') + '</header>';
-  const kvRow = (k, v) => '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>';
-
-  UI.paper = { num, mmdd, hhmm, stamp, ymd, dayStr, famOf, famDot, wordsHTML, waveKey, waveVal, entryNo, latinOf, plateHead, caption, letterhead, kvRow };
-  UI.entryNo = entryNo;
-
-  /* ================================================================
-   * 紀錄卡：一筆心情＝一張填完的觀察紀錄卡（art §5.8.1）
-   * ================================================================ */
-
-  /**
-   * opts.compact：精簡版（只有頁首、名稱、浪、記述；沒有內框，頂部 1px 實線）
-   * 危機紀錄（e.crisis）不重現任何原文。
-   */
-  UI.entryCard = (e, opts = {}) => {
-    const t = F.TURNS[e.turn];
-    let h = '<article class="paper rec' + (opts.compact ? ' compact' : ' framed') + '">';
-    h += '<header class="rec-h"><span class="label">心情紀錄</span>' + num('No. ' + entryNo(e)) + '<span class="num rec-t">' + stamp(e.t) + '</span></header>';
-    h += '<dl class="kv">';
-    h += kvRow('名稱', '<span class="rec-words">' + wordsHTML(e) + '</span>');
-    h += kvRow(waveKey(e), waveVal(e));
-    if (!opts.compact) {
-      let turn = '<span class="fg-2">還沒選</span>';
-      if (t) turn = esc(t.name) + (e.turn === 'reframe' && F.LENSES[e.lens] ? '（' + F.LENSES[e.lens].name + '）' : '');
-      h += kvRow('陪法', turn);
-      const sp = t && F.SPECIES[t.species];
-      if (sp) h += kvRow('長成', esc(sp.name) + (latinOf(t.species) ? '　' + latinOf(t.species) : ''));
-      const needs = (e.needs || []).map((n) => F.NEEDS[n] && F.NEEDS[n].name).filter(Boolean);
-      if (needs.length) h += kvRow('需要', needs.join('、'));
-      if (e.step) {
-        const st = e.step;
-        const what = e.crisis || !st.what ? '一件小事' : '<span class="hand">' + esc(st.what) + '</span>';
-        let status;
-        if (st.status === 'done') status = '做到了' + (st.doneAt ? ' ' + num(stamp(st.doneAt)) : '');
-        else if (st.status === 'dropped') status = '已劃掉';
-        else status = '想在「' + (F.STEP_WHEN[st.when] || F.STEP_WHEN.now).name + '」做';
-        h += kvRow('小事', what + '<span class="rec-sub">' + status + '</span>');
-      }
-    }
-    h += '</dl>';
-    if (e.raw && !e.crisis) h += '<div class="rec-raw"><span class="label">記述</span><p class="lined">' + esc(e.raw) + '</p></div>';
-    h += '</article>';
-    return h;
-  };
-
-  /* ================================================================
-   * 圖鑑：一本圖冊。目次＋圖版 1–6（art §5.8.2、§8.3）
-   * 切換用暗色上的 .tabs（屬於海），內容是一張張紙
-   * ================================================================ */
-
+  /* ---------- 圖鑑 ---------- */
   const SAMPLE = (over) =>
     Object.assign(
       { hue: 196, hue2: 176, sat: 0.55, shape: 'dome', size: 1, tentacles: 8, tentLen: 0.9, arms: 2, armLen: 0.7, pattern: 'plain', glow: 0.75, pulse: 1, special: null, seed: 424242 },
       over
     );
 
-  const PLATES = [
-    ['color', '顏色', () => Gn.COLORS.length],
-    ['shape', '傘形', () => Gn.SHAPE_IDS.length],
-    ['pattern', '花紋', () => Gn.PATTERN_IDS.length],
-    ['special', '體質', () => Gn.SPECIAL_IDS.length],
-    ['eco', '生態', null],
-    ['life', '一生', null],
-  ];
-  const plateNo = (id) => PLATES.findIndex((p) => p[0] === id) + 1;
-  const foundIn = (id) => Object.keys(Game.state.codex).filter((k) => k.startsWith(id + ':')).length;
-
-  const LIFE = [
-    ['水螅體', '附著在海底，形似小海葵。'],
-    ['橫裂體', '身體橫向分節，疊成一串小碟子。'],
-    ['碟狀幼體', '最上面一節脫離，形如八角星。'],
-    ['水母體', '傘逐漸長圓，成為水母。'],
-  ];
-
   RENDER.codex = (body, tab) => {
-    tab = tab || UI.codexTab || 'toc';
-    if (tab !== 'toc' && !PLATES.some((p) => p[0] === tab)) tab = 'toc';
+    tab = tab || UI.codexTab || 'color';
     UI.codexTab = tab;
     const s = Game.state;
-
-    let html = '<div class="sheaf">';
-    html += '<div class="tabs" role="tablist" aria-label="圖鑑">';
-    for (const [id, name] of [['toc', '目次']].concat(PLATES)) {
-      html += '<button role="tab" class="tab' + (id === tab ? ' on' : '') + '" aria-selected="' + (id === tab) + '" data-tab="' + id + '">' + name + '</button>';
+    const found = Object.keys(s.codex).length;
+    const total = Gn.codexTotal();
+    const tabs = [
+      ['color', '顏色', Gn.COLORS.length, 'color:'],
+      ['shape', '傘形', Gn.SHAPE_IDS.length, 'shape:'],
+      ['pattern', '花紋', Gn.PATTERN_IDS.length, 'pattern:'],
+      ['special', '體質', Gn.SPECIAL_IDS.length, 'special:'],
+      ['eco', '生態', 0, 'eco'],
+      ['life', '一生', 0, ''],
+    ];
+    const count = (prefix) => (prefix === 'eco' ? Object.keys(s.eco.species).length : Object.keys(s.codex).filter((k) => k.startsWith(prefix)).length);
+    let html = '<div class="progress-head"><div><strong>' + found + '</strong> / ' + total + ' 項已發現</div><div class="bar"><i style="width:' + Math.round((found / total) * 100) + '%"></i></div></div>';
+    html += '<div class="tabs" role="tablist">';
+    for (const [id, name, n, prefix] of tabs) {
+      html += '<button role="tab" class="tab' + (id === tab ? ' on' : '') + '" aria-selected="' + (id === tab) + '" data-tab="' + id + '">' + name + (n ? '<small>' + count(prefix) + '/' + n + '</small>' : '') + '</button>';
     }
     html += '</div>';
 
-    if (tab === 'toc') {
-      const found = Object.keys(s.codex).length;
-      html += '<section class="paper leaf framed">' + plateHead(null, '目次', '已發現　' + num(found + '/' + Gn.codexTotal())) + '<ol class="toc">';
-      PLATES.forEach(([id, name, total], i) => {
-        html += '<li><button class="toc-row" data-plate="' + id + '"><span class="label">圖版 ' + num(i + 1) + '</span><span class="toc-t">' + name + '</span>';
-        html += total ? '<span class="num toc-n">' + foundIn(id) + '/' + total() + '</span>' : '';
-        html += '</button></li>';
-      });
-      html += '</ol></section>';
-    } else if (tab === 'color') {
-      html += '<section class="paper leaf framed">' + plateHead(plateNo('color'), '顏色', num(foundIn('color') + '/' + Gn.COLORS.length)) + '<ol class="figs">';
-      Gn.COLORS.forEach((c, i) => {
+    if (tab === 'color') {
+      html += '<div class="swatches">';
+      for (const c of Gn.COLORS) {
         const got = s.codex['color:' + c.id];
-        html += '<li class="fig' + (got ? '' : ' none') + '">';
-        html += got
-          ? '<span class="win">' + portraitImg(SAMPLE({ hue: c.hue, hue2: c.pale ? 200 : c.hue + 24, sat: c.pale ? 0.12 : 0.62 }), 1, 112, '') + '</span>'
-          : '<span class="win empty" aria-hidden="true"></span>';
-        html += '<span class="fig-n">' + num(i + 1) + '<span>' + (got ? c.name : '未發現') + '</span></span>';
-        if (got) html += '<span class="fig-d">' + esc(c.desc) + '</span>';
-        html += '</li>';
-      });
-      html += '</ol>' + caption(1, '水母傘的顏色，依色相分成 12 種，另有幾乎透明的月白。') + '</section>';
+        const bg = c.pale ? 'radial-gradient(circle at 40% 35%, #fff, hsl(200,20%,78%))' : 'radial-gradient(circle at 40% 35%, hsl(' + c.hue + ',85%,86%), hsl(' + c.hue + ',70%,56%))';
+        html += '<div class="swatch' + (got ? '' : ' locked') + '"><span class="orb" style="' + (got ? 'background:' + bg : '') + '"></span>';
+        html += '<b>' + (got ? c.name : '？？') + '</b><small>' + (got ? c.desc : '還沒遇見這個顏色') + '</small></div>';
+      }
+      html += '</div>';
     } else if (tab === 'shape' || tab === 'pattern' || tab === 'special') {
       const defs = tab === 'shape' ? Gn.SHAPES : tab === 'pattern' ? Gn.PATTERNS : Gn.SPECIALS;
       const ids = Object.keys(defs);
-      const name = PLATES[plateNo(tab) - 1][1];
-      html += '<section class="paper leaf framed">' + plateHead(plateNo(tab), name, num(foundIn(tab) + '/' + ids.length)) + '<ol class="rows spec-rows">';
-      ids.forEach((id, i) => {
+      html += '<ul class="rows codex-rows">';
+      for (const id of ids) {
         const def = defs[id];
         const got = s.codex[tab + ':' + id];
         const genes =
@@ -200,250 +59,154 @@
             : tab === 'pattern'
             ? SAMPLE({ pattern: id, hue: 330, hue2: 45, sat: 0.6 })
             : SAMPLE({ special: id, hue: id === 'golden' ? 46 : 260, hue2: 190, sat: id === 'ghost' ? 0.12 : 0.65, pattern: 'clover' });
-        html += '<li class="row' + (got ? '' : ' none') + '">';
-        html += got ? '<span class="win">' + portraitImg(genes, 1, 64, '') + '</span>' : '<span class="win empty" aria-hidden="true"></span>';
-        html += '<div class="row-main"><span class="fig-n">' + num(i + 1) + '<span>' + (got ? def.name : '未發現') + '</span></span>';
-        if (got) html += '<span class="fig-d">' + esc(def.desc) + '</span>';
-        else if (def.hint) html += '<span class="fig-d">提示：' + esc(def.hint) + '</span>';
+        html += '<li class="row' + (got ? '' : ' locked') + '">';
+        html += got ? portraitImg(genes, 1, 64, 'portrait sm') : '<span class="portrait sm unknown" aria-hidden="true">？</span>';
+        html += '<div class="row-main"><div class="row-title">' + (got ? def.name : '？？？') + '</div>';
+        if (got) html += '<div class="row-sub">' + def.desc + '</div>';
+        else html += '<div class="row-sub clue">' + (def.hint ? '提示：' + def.hint : '還沒遇見。多養幾隻、多配幾對看看。') + '</div>';
         html += '</div></li>';
-      });
-      html += '</ol></section>';
+      }
+      html += '</ul>';
     } else if (tab === 'eco') {
       html += UI.ecoCodex();
     } else {
-      html += '<section class="paper leaf framed">' + plateHead(plateNo('life'), '一生') + '<ol class="figs four">';
-      LIFE.forEach(([n, d], i) => {
-        html += '<li class="fig"><span class="win"><canvas data-stage="' + i + '" aria-hidden="true"></canvas></span>';
-        html += '<span class="fig-n">' + num(i + 1) + '<span>' + n + '</span></span><span class="fig-d">' + d + '</span></li>';
-      });
-      html += '</ol>' + caption(1, '海月水母的一生。水螅體可以一次放出好幾隻碟狀幼體。') + '</section>';
-      html += '<section class="paper leaf"><header class="ph"><h3 class="ph-t">水母小知識</h3></header><ol class="numbered">';
-      C.facts.forEach((f, i) => (html += '<li>' + num(i + 1) + '<span>' + esc(f) + '</span></li>'));
-      html += '</ol></section>';
+      html += '<ol class="life">';
+      const stages = [
+        ['水螅體', '像一朵小小的海葵，黏在海底。這是水母的童年。'],
+        ['橫裂體', '身體一節一節分開，疊成一串小碟子。'],
+        ['碟狀幼體', '最上面的碟子脫離出發，看起來像八角星。'],
+        ['水母體', '傘慢慢長圓，就是我們熟悉的水母了。'],
+      ];
+      for (const [n, d] of stages) html += '<li><b>' + n + '</b><span>' + d + '</span></li>';
+      html += '</ol><h3 class="sub-h">水母小知識</h3><ul class="facts-list">';
+      for (const f of C.facts) html += '<li>' + esc(f) + '</li>';
+      html += '</ul>';
     }
-    html += '</div>';
     body.innerHTML = html;
-
-    const go = (id) => {
-      A.click();
-      UI.openSheet('codex', id);
-      UI.el.sheetBody.scrollTop = 0;
-    };
-    body.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => go(b.dataset.tab)));
-    body.querySelectorAll('[data-plate]').forEach((b) => b.addEventListener('click', () => go(b.dataset.plate)));
-    body.querySelectorAll('canvas[data-stage]').forEach((c) => drawStage(c, +c.dataset.stage));
-    return '圖鑑';
+    body.querySelectorAll('[data-tab]').forEach((b) =>
+      b.addEventListener('click', () => {
+        A.click();
+        UI.openSheet('codex', b.dataset.tab);
+      })
+    );
+    return '水母圖鑑';
   };
-
-  /** 一生的四張圖：水螅體、橫裂體用 polyp.js 畫，碟狀幼體、水母體用水母的肖像 */
-  function drawStage(canvas, i) {
-    const size = Math.round(canvas.parentNode.clientWidth) || 88;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    const g = canvas.getContext('2d');
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const genes = SAMPLE({ pattern: 'clover' });
-    if (i === 2) return drawEphyra(g, size, genes.hue);
-    if (i === 3) {
-      const c = document.createElement('canvas');
-      MJ.Jelly.portrait(c, genes, 1, size);
-      g.drawImage(c, 0, 0, size, size);
-      return;
-    }
-    if (!MJ.Polyp) return;
-    const p = new MJ.Polyp({ genes, x: 0.5, progress: i === 0 ? 0.25 : 0.9 });
-    p.t = 1.2;
-    const unit = size / 64;
-    const sand = size * 0.84;
-    const world = { W: size, H: size, unit, sandY: () => sand };
-    g.save();
-    // 只畫生物本身：底下那圈孵化進度是水族箱裡的介面，不放進圖版
-    g.beginPath();
-    g.rect(0, 0, size, sand + 3 + 3 * unit);
-    g.clip();
-    p.draw(g, world);
-    g.restore();
-  }
-
-  /** 碟狀幼體（從上面看）：八條臂，每條臂的尖端分叉 */
-  function drawEphyra(g, size, hue) {
-    const c = size / 2;
-    const R = size * 0.3;
-    g.save();
-    g.globalCompositeOperation = 'lighter';
-    U.drawGlow(g, c, c, size * 0.8, hue, 0.5, 0.66, 0.3);
-    g.fillStyle = U.hsla(hue, 0.45, 0.76, 0.42);
-    g.strokeStyle = U.hsla(hue, 0.5, 0.86, 0.75);
-    g.lineWidth = 1;
-    g.beginPath();
-    g.arc(c, c, R * 0.46, 0, U.TAU);
-    g.fill();
-    g.stroke();
-    const w = R * 0.16;
-    for (let k = 0; k < 8; k++) {
-      g.save();
-      g.translate(c, c);
-      g.rotate((k / 8) * U.TAU + 0.2);
-      g.beginPath();
-      g.moveTo(R * 0.4, -w);
-      g.lineTo(R * 0.86, -w * 0.9);
-      g.lineTo(R * 1.02, -w * 1.5);
-      g.lineTo(R * 0.9, 0);
-      g.lineTo(R * 1.02, w * 1.5);
-      g.lineTo(R * 0.86, w * 0.9);
-      g.lineTo(R * 0.4, w);
-      g.closePath();
-      g.fill();
-      g.stroke();
-      g.restore();
-    }
-    g.fillStyle = U.hsla(hue, 0.4, 0.88, 0.6);
-    g.beginPath();
-    g.arc(c, c, R * 0.12, 0, U.TAU);
-    g.fill();
-    g.restore();
-  }
-
-  /** 圖版 5 生態：只列見過的（心情長出來的生物不算完成度，也不留空格暗示還缺哪一種陪法） */
-  UI.ecoCodex = () => {
-    const sp = Game.state.eco.species;
-    const met = F.SPECIES_IDS.filter((id) => sp[id]);
-    let html = '<section class="paper leaf framed">' + plateHead(plateNo('eco'), '生態');
-    if (!met.length) html += '<p class="empty">此頁空白。每一筆心情都會長成一種生物。</p>';
-    else html += '<p class="plate-lede">每一筆心情一開始都是一隻幼生。你選怎麼陪它，決定它長成哪一種生物。</p>';
-    html += '<ol class="rows eco-rows">';
-    for (const id of met) {
-      const d = F.SPECIES[id];
-      html += '<li class="row"><div class="row-main">';
-      html += '<p class="eco-name"><span>' + esc(d.name) + '</span>' + latinOf(id) + '</p>';
-      html += '<dl class="kv">' + kvRow('來自', esc(d.from)) + kvRow('實際生態', esc(d.fact)) + kvRow('在這座館裡', esc(d.link)) + '</dl>';
-      html += '</div></li>';
-    }
-    html += '</ol></section>';
-
-    const rel = [
-      ['藍眼淚', '餵養', '水母、珊瑚'],
-      ['珊瑚礁', '收留', '雀鯛'],
-      ['海葵', '保護', '小丑魚'],
-      ['海龜', '帶殼給', '寄居蟹'],
-      ['海草床', '聚集', '海馬'],
-      ['礁石洞', '遮蔭', '寄居蟹、燈籠魚'],
-      ['月光石', '晚上吸引', '燈籠魚'],
-      ['大的寄居蟹', '把舊殼讓給', '小一號的'],
-      ['同一種需要', '聚成', '一群燈籠魚'],
-      ['同一種感覺', '一層層長成', '珍珠'],
-      ['很多種陪法', '引來', '章魚'],
-      ['瓶中信', '難受的時候回到', '你身邊'],
-    ];
-    html += '<section class="paper leaf"><header class="ph"><h3 class="ph-t">牠們之間的關係</h3></header>';
-    html += '<table class="tbl"><thead><tr><th scope="col">主體</th><th scope="col">關係</th><th scope="col">對象</th></tr></thead><tbody>';
-    for (const [a, v, b] of rel) html += '<tr><td>' + a + '</td><td class="fg-2">' + v + '</td><td>' + b + '</td></tr>';
-    html += '</tbody></table></section>';
-    return html;
-  };
-
-  /* ================================================================
-   * 天氣紀錄（原心情日記）：每天拆信前選的天氣。7 欄格線，當天圈一個字
-   * ================================================================ */
-
-  const WX_CHAR = { sunny: '晴', cloudy: '雲', rain: '雨', storm: '雷', fog: '霧' };
 
   RENDER.diary = (body) => {
     const s = Game.state;
     const days = 35;
     const today = new Date();
+    let html = '<p class="lede">每天來拆海的來信時選的心情，會記在這裡。</p><div class="diary">';
+    const wd = ['日', '一', '二', '三', '四', '五', '六'];
+    for (const w of wd) html += '<span class="dw">' + w + '</span>';
     const start = new Date(today);
     start.setDate(today.getDate() - days + 1);
-    let html = '<div class="sheaf"><section class="paper leaf framed">';
-    html += plateHead(null, '天氣紀錄', num(mmdd(start) + '～' + mmdd(today)));
-    html += '<div class="cal"><div class="cal-row" aria-hidden="true">';
-    for (const w of ['日', '一', '二', '三', '四', '五', '六']) html += '<span class="cal-w">' + w + '</span>';
-    html += '</div><div class="cal-days" role="list" aria-label="最近 35 天的天氣">';
-    for (let i = 0; i < start.getDay(); i++) html += '<span class="cal-d blank" aria-hidden="true"></span>';
+    for (let i = 0; i < start.getDay(); i++) html += '<span class="dd blank"></span>';
     for (let i = 0; i < days; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-      const m = C.moods.find((x) => x.id === s.moods[U.today(d)]);
+      const key = U.today(d);
+      const m = C.moods.find((x) => x.id === s.moods[key]);
       const isToday = i === days - 1;
-      html += '<span class="cal-d' + (isToday ? ' today' : '') + '" role="listitem" aria-label="' + dayStr(d) + (m ? '　' + m.name : '') + '">';
-      html += '<span class="num">' + d.getDate() + '</span>' + (m ? '<b class="cal-m" aria-hidden="true">' + (WX_CHAR[m.id] || m.name[0]) + '</b>' : '') + '</span>';
+      html += '<span class="dd' + (isToday ? ' today' : '') + '" title="' + key + (m ? '・' + m.name : '') + '"' + (m ? ' style="--m:' + m.color + '"' : '') + '><i></i><small>' + d.getDate() + '</small></span>';
     }
-    html += '</div></div>';
-    html += caption(1, C.moods.map((m) => '<span class="nw">' + (WX_CHAR[m.id] || m.name[0]) + '＝' + m.name + '</span>').join('　') + '。圈起來的字是那天拆信前選的天氣。');
-    html += '</section><section class="paper leaf"><dl class="kv">';
-    html += kvRow('這個月來過', num(Game.daysThisMonth()) + ' 天');
-    html += kvRow('一共來過', num(Object.keys(s.visits || {}).length) + ' 天');
-    html += kvRow('拆過的信', num(s.stats.letters) + ' 封');
-    html += kvRow('記下的心情', num(s.stats.rituals || 0) + ' 筆');
-    html += '</dl></section></div>';
+    html += '</div><div class="legend">';
+    for (const m of C.moods) html += '<span><i style="background:' + m.color + '"></i>' + m.name + '</span>';
+    html += '</div><dl class="facts two"><div><dt>這個月來過</dt><dd>' + Game.daysThisMonth() + ' 天</dd></div><div><dt>一共來過</dt><dd>' + Object.keys(s.visits || {}).length + ' 天</dd></div><div><dt>拆過的信</dt><dd>' + s.stats.letters + ' 封</dd></div><div><dt>記下的心情</dt><dd>' + (s.stats.rituals || 0) + ' 份</dd></div></dl>';
     body.innerHTML = html;
-    return '天氣紀錄';
+    return '心情日記';
   };
   RENDER.diary.back = 'more';
 
-  /* ================================================================
-   * 成就：檢核表。印刷的框，你的墨水畫的勾
-   * ================================================================ */
-
-  RENDER.ach = (body) => {
-    const s = Game.state;
-    const done = Game.ACH.filter((a) => s.achievements[a.id]).length;
-    let html = '<div class="sheaf"><section class="paper leaf framed">' + plateHead(null, '檢核表', num(done + '/' + Game.ACH.length)) + '<ul class="checklist">';
-    for (const a of Game.ACH) {
-      const at = s.achievements[a.id];
-      html += '<li' + (at ? ' class="done"' : '') + '><span class="tick' + (at ? ' on' : '') + '" role="img" aria-label="' + (at ? '已完成' : '未完成') + '"></span>';
-      html += '<span class="ck-main"><span class="ck-t">' + esc(a.name) + '</span><span class="label">' + esc(a.desc) + '</span></span>';
-      html += '<span class="num ck-r">' + (at ? mmdd(at) : a.reward ? '+' + a.reward + ' 光' : '') + '</span></li>';
-    }
-    html += '</ul></section></div>';
-    body.innerHTML = html;
-    return '成就';
+  UI.welcomeModal = () => {
+    UI.showModal((card, close) => {
+      card.innerHTML =
+        '<h2 class="m-title">歡迎來到海月水母館</h2>' +
+        '<p class="m-text">這裡有三隻水母，和一個快要孵化的水螅體。從今天開始，牠們就交給你了。</p>' +
+        '<ul class="how"><li><b>點水</b>撒下浮游生物</li><li><b>按住水母滑動</b>摸摸牠</li><li><b>點水母</b>看牠的名片</li><li><b>按「心情」</b>替感覺取名字，看它長成什麼生物</li></ul>' +
+        '<p class="m-foot">不用急。水母們在這裡漂了很久，也會一直在這裡。</p>' +
+        '<div class="btn-row center"><button class="btn ghost" data-w="feel">' + icon('heartsea') + '我現在有感覺</button><button class="btn" data-w="ok">好，我知道了</button></div>';
+      card.querySelector('[data-w="ok"]').addEventListener('click', () => close());
+      card.querySelector('[data-w="feel"]').addEventListener('click', () => {
+        close();
+        setTimeout(() => MJ.Ritual.start(), 300);
+      });
+    });
   };
-  RENDER.ach.back = 'more';
 
-  /* ================================================================
-   * 信紙：海的來信、瓶中紙條、你的瓶中信、本週紀錄（art §5.8.3、type-copy §2.5）
-   * 信沒有內框；信頭下面一條 1px 實線。信尾不署名。
-   * ================================================================ */
-
-  const giftText = (g) => esc(String(g).replace(/\s*×\s*(\d+)/, ' $1 顆'));
+  /** 回來的時候：離開時發生的事、該問的小事、今天的信、這週的回顧，合成一張卡 */
+  UI.welcomeBack = (o) => {
+    let after = null;
+    UI.showModal(
+      (card, close) => {
+        let html = '<h2 class="m-title">歡迎回來</h2>';
+        const off = o.offline;
+        if (off) {
+          html += '<p class="m-text">你離開了 ' + U.duration(off.sec) + '。</p><ul class="how">';
+          if (off.gain > 0) html += '<li>水母們一共發了 <b>' + U.fmt(off.gain) + '</b> 光</li>';
+          if (off.born.length) html += '<li><b>' + off.born.map((j) => '「' + esc(j.name) + '」').join('、') + '</b> 出生了</li>';
+          if (off.grown) html += '<li>有 <b>' + off.grown + '</b> 隻小水母長大了</li>';
+          html += '</ul>';
+          if (off.born.length) html += '<div class="born-row">' + off.born.map((j) => portraitImg(j.genes, j.growth, 72, 'portrait sm')).join('') + '</div>';
+        }
+        if (o.steps.length) {
+          html += '<div class="wb-steps"><div class="wb-h">' + icon('step') + '之前想做的小事，後來呢？怎麼樣都可以。</div>';
+          for (const e of o.steps) {
+            html += '<div class="wb-step" data-id="' + e.id + '"><b>' + esc(e.step.what) + '</b><span class="wb-btns">' +
+              '<button class="btn sm ghost" data-s="dropped">不需要了</button><button class="btn sm ghost" data-s="later">還沒</button><button class="btn sm" data-s="done">做到了</button></span></div>';
+          }
+          html += '</div>';
+        }
+        html += '<div class="wb-actions">';
+        if (o.letter) html += '<button class="btn" data-w="letter">' + icon('letter') + '拆今天的信</button>';
+        if (o.recap) html += '<button class="btn ghost" data-w="recap">' + icon('tides') + '這一週的回顧</button>';
+        html += '<button class="btn ghost" data-w="feel">' + icon('heartsea') + '我現在有感覺</button>';
+        html += '</div><div class="btn-row center"><button class="btn ghost quiet" data-w="ok">先看看水母</button></div>';
+        card.innerHTML = html;
+        const said = { done: '做到了。海龜出發去旅行了。', later: '好，不急。', dropped: '好，先放下。' };
+        card.querySelectorAll('.wb-step').forEach((row) =>
+          row.querySelectorAll('[data-s]').forEach((b) =>
+            b.addEventListener('click', () => {
+              const st = b.dataset.s;
+              row.querySelector('.wb-btns').innerHTML = '<small>' + said[st] + '</small>';
+              Game.setStep(row.dataset.id, st, true);
+            })
+          )
+        );
+        card.querySelectorAll('[data-w]').forEach((b) =>
+          b.addEventListener('click', () => {
+            const w = b.dataset.w;
+            if (w === 'letter') after = () => UI.letterModal();
+            else if (w === 'recap') after = () => UI.recapModal();
+            else if (w === 'feel') after = () => MJ.Ritual.start();
+            close();
+          })
+        );
+      },
+      { cls: 'wide', onClose: () => after && setTimeout(after, 60) }
+    );
+  };
 
   UI.letterModal = () => {
     if (!Game.letterDue()) return;
     UI.showModal(
       (card, close) => {
-        const s = Game.state;
-        let html = letterhead('今天的信', '第 ' + num(s.stats.letters + 1) + ' 封　' + num(ymd(Date.now())));
-        html += '<p class="lt-q">拆信前，選今天的天氣：</p><div class="weather" role="group" aria-label="今天的天氣">';
-        for (const m of C.moods) html += '<button class="mood-btn" data-mood="' + m.id + '" aria-pressed="false"><span class="pick">' + m.name + '</span><span class="label">' + m.desc + '</span></button>';
-        html += '</div><div class="lt-open" hidden></div>';
+        let html = '<div class="letter-seal" aria-hidden="true">' + icon('letter') + '</div><h2 class="m-title">今天的海，寄來了一封信</h2>';
+        html += '<p class="m-text">拆信之前，想先問問你：今天的心情是？</p><div class="moods">';
+        for (const m of C.moods) html += '<button class="mood-btn" data-mood="' + m.id + '" style="--m:' + m.color + '"><i></i><b>' + m.name + '</b><small>' + m.desc + '</small></button>';
+        html += '</div>';
         card.innerHTML = html;
-        const btns = card.querySelectorAll('[data-mood]');
-        let chosen = false;
-        btns.forEach((b) =>
+        card.querySelectorAll('[data-mood]').forEach((b) =>
           b.addEventListener('click', () => {
-            if (chosen) return;
             const r = Game.claimLetter(b.dataset.mood);
             if (!r) return close();
-            chosen = true;
             A.discover();
-            // 圈了才出現信文：圈留在紙上，其他選項變成鉛筆色
-            btns.forEach((x) => {
-              x.disabled = true;
-              x.setAttribute('aria-pressed', String(x === b));
-            });
-            b.querySelector('.pick').classList.add('on');
-            const gifts = ['<span class="num">+' + r.reward + '</span> 光'].concat((r.gifts || []).map(giftText)).join('　');
-            let h = '<p class="lt-reply">' + esc(r.reply) + '</p><p class="lt-main">' + esc(r.letter) + '</p><hr>';
-            h += '<dl class="kv">' + kvRow('附記', esc(r.fact)) + '<div><dt>附上</dt><dd class="gift">' + gifts + '</dd></div></dl>';
-            h += '<div class="btn-row"><button class="btn" data-r="ok">收下</button></div>';
-            const open = card.querySelector('.lt-open');
-            open.innerHTML = h;
-            open.hidden = false;
-            const ok = open.querySelector('[data-r="ok"]');
-            ok.addEventListener('click', () => close());
-            setTimeout(() => ok.focus({ preventScroll: true }), 60);
+            let h = '<div class="letter"><p class="letter-reply">' + esc(r.reply) + '</p><p class="letter-main">' + esc(r.letter) + '</p></div>';
+            h += '<div class="fact"><span>今天的水母小知識</span>' + esc(r.fact) + '</div>';
+            h += '<p class="gift"><span class="light-dot sm"></span>+' + r.reward + ' 光・' + r.gifts.join('・') + '</p>';
+            h += '<div class="btn-row center"><button class="btn">收下</button></div>';
+            card.innerHTML = h;
+            card.querySelector('.btn').addEventListener('click', () => close());
           })
         );
       },
@@ -455,37 +218,97 @@
     UI.showModal(
       (card, close) => {
         card.innerHTML =
-          letterhead('瓶中紙條', num(ymd(Date.now()))) +
-          '<p class="lt-main">' + esc(text) + '</p>' +
-          (reward ? '<hr><dl class="kv"><div><dt>附上</dt><dd class="gift">' + num('+' + reward) + ' 光</dd></div></dl>' : '') +
-          '<div class="btn-row"><button class="btn">收下</button></div>';
+          '<h2 class="m-title">漂流瓶裡的紙條</h2><div class="letter"><p class="letter-main">' + esc(text) + '</p></div>' +
+          (reward ? '<p class="gift"><span class="light-dot sm"></span>+' + reward + ' 光</p>' : '') +
+          '<div class="btn-row center"><button class="btn">收好</button></div>';
         card.querySelector('.btn').addEventListener('click', () => close());
       },
       { cls: 'paper' }
     );
   };
 
-  /** 海送回來的、你以前寫的字：手寫體坐在書寫線上 */
-  UI.pastLetterModal = (letter) => {
-    const turn = F.TURNS[letter.turn];
-    UI.showModal(
-      (card, close) => {
-        card.innerHTML =
-          letterhead('你的瓶中信', null, '寫於 ' + dayStr(letter.t) + (turn ? '　「' + turn.name + '」' : '')) +
-          '<p class="lined lt-hand">' + esc(letter.text) + '</p>' +
-          '<div class="btn-row"><button class="btn">收下</button></div>';
-        card.querySelector('.btn').addEventListener('click', () => close());
-      },
-      { cls: 'paper' }
-    );
+  const newbornCard = (title, lede, j, found) => {
+    const d = Gn.describe(j.genes);
+    let html = '<h2 class="m-title">' + title + '</h2><img class="portrait lg" src="' + UI.portrait(j.genes, Math.max(j.growth, 0.6), 160) + '" alt="">';
+    html += '<div class="nb-name">' + esc(j.name) + '</div><div class="nb-meta">' + starsHTML(d.stars) + ' ' + d.rarity + '</div>';
+    html += '<div class="chips center">' + traitChips(j.genes) + '</div>';
+    if (lede) html += '<p class="m-text">' + lede + '</p>';
+    if (found && found.length) html += '<p class="found">圖鑑新發現：' + found.map(Game.codexName).join('、') + '</p>';
+    return html;
   };
 
-  /* ================================================================
-   * 珍珠：剖面放在標本窗裡，旁邊是由內到外的陪法（art §5.8.2）
-   * ================================================================ */
+  UI.birthModal = (j, found) => {
+    UI.showModal((card, close) => {
+      card.innerHTML =
+        newbornCard('新生命！', (j.parents ? esc(j.parents.join(' 和 ')) + '的孩子，' : '') + '剛從水螅體脫離出發，現在還是一片小小的碟狀幼體。', j, found) +
+        '<div class="btn-row center"><button class="btn ghost" data-r="rename">取別的名字</button><button class="btn" data-r="ok">歡迎你</button></div>';
+      card.querySelector('[data-r="ok"]').addEventListener('click', () => close());
+      card.querySelector('[data-r="rename"]').addEventListener('click', () => {
+        close();
+        setTimeout(async () => {
+          const name = await UI.prompt({ title: '幫牠取個名字', value: j.name, max: 12 });
+          if (name) Game.rename(j.id, name);
+        }, 320);
+      });
+    });
+  };
 
-  /** 珍珠層的顏色（color.md §5.5，淡）；珍珠本來就是光，所以底下是一圈很淡的金色 */
-  const PEARL = { allow: '#b1d2f4', ground: '#d7c4ee', reframe: '#ebc6a6', need: '#a0dbd6', kind: '#f2bec6', step: '#bfd7ae', release: '#a3d7ea', savor: '#e3caa2', thank: '#f2c1b2', keep: '#aadbc4' };
+  UI.catchModal = (j, found) => {
+    UI.showModal((card, close) => {
+      card.innerHTML =
+        newbornCard('撈到了！', '一隻從外面的海來的水母。' + (j.adult ? '已經是大人了。' : '還沒完全長大。'), j, found) +
+        '<div class="btn-row center"><button class="btn">歡迎你</button></div>';
+      card.querySelector('.btn').addEventListener('click', () => close());
+    });
+  };
+
+  /** 一份心情的小卡：字、時間、浪的變化 */
+  UI.entryCard = (e) => {
+    const fam = F.FAMILIES[e.fam] || F.FAMILIES.calm;
+    let wave = e.i0 == null ? '沒有量強度' : '浪 ' + e.i0;
+    if (e.i0 != null && e.turn && e.i1 != null && e.i1 !== e.i0) wave += ' → ' + e.i1;
+    let html = '<div class="entry-card" style="--h:' + fam.hue + ';--s:' + Math.round(Math.max(0.3, fam.sat) * 100) + '%">';
+    html += '<div class="entry-words">' + e.words.map((w) => '「' + esc(w) + '」').join('') + '</div>';
+    html += '<div class="entry-meta">' + timeStr(e.t) + '・' + wave + '</div>';
+    if (e.raw && !e.crisis) html += '<p class="entry-raw">' + esc(e.raw) + '</p>';
+    html += '</div>';
+    return html;
+  };
+
+  UI.ecoCodex = () => {
+    const sp = Game.state.eco.species;
+    let html = '<p class="lede">每一份心情一開始都是一隻幼生。你選擇怎麼陪它，決定它長成哪一種生物。牠們在海裡，彼此有關。</p>';
+    // 只列出遇見過的：心情長出來的生物不算完成度，也不留空格暗示「還缺哪一種陪法」
+    const met = F.SPECIES_IDS.filter((id) => sp[id]);
+    if (!met.length) html += '<div class="empty">還沒有。每一份心情，都會長成一種生物。</div>';
+    html += '<ul class="rows codex-rows eco-rows">';
+    for (const id of met) {
+      const d = F.SPECIES[id];
+      html += '<li class="row"><span class="eco-badge" style="--h:' + SPECIES_HUE[id] + '">' + icon(SPECIES_ICON[id]) + '</span>';
+      html += '<div class="row-main"><div class="row-title">' + d.name + '<small>' + esc(d.from) + '</small></div>';
+      html += '<div class="row-sub">' + esc(d.fact) + '</div><div class="row-sub link-line">' + esc(d.link) + '</div>';
+      html += '</div></li>';
+    }
+    html += '</ul>';
+    html += '<h3 class="sub-h">牠們之間的關係</h3><ul class="web">';
+    const rel = [
+      ['藍眼淚', '餵養', '水母、珊瑚'],
+      ['珊瑚礁', '收留', '雀鯛'],
+      ['海葵', '保護', '小丑魚'],
+      ['海龜', '帶殼給', '寄居蟹'],
+      ['海草床', '聚集', '海馬'],
+      ['礁石洞', '替', '寄居蟹和燈籠魚遮蔭'],
+      ['月光石', '在晚上吸引', '燈籠魚'],
+      ['大的寄居蟹', '把舊殼讓給', '小一號的'],
+      ['同一種需要', '聚成', '一群燈籠魚'],
+      ['同一種感覺', '一層層長成', '珍珠'],
+      ['很多種陪法', '引來', '章魚'],
+      ['瓶中信', '在難受的時候回到', '你身邊'],
+    ];
+    for (const [a, v, b] of rel) html += '<li><b>' + a + '</b><span class="web-v">' + v + '</span><b>' + b + '</b></li>';
+    html += '</ul>';
+    return html;
+  };
 
   /** 珍珠：由內到外，一層一層是當時選的陪法 */
   UI.drawPearl = (canvas, layers, size) => {
@@ -498,39 +321,38 @@
     const c = size / 2;
     const R = size * 0.36;
     g.globalCompositeOperation = 'lighter';
-    U.drawGlow(g, c, c, size * 1.05, 42, 0.62, 0.72, 0.32);
+    U.drawGlow(g, c, c, size * 1.1, layers.length ? F.TURNS[layers[layers.length - 1]].hue : 40, 0.4, 0.8, 0.6);
     g.globalCompositeOperation = 'source-over';
     const n = Math.max(1, layers.length);
     const den = Math.max(7, n);
     for (let i = n - 1; i >= 0; i--) {
       const t = layers[i];
       const r = R * ((i + 1) / den);
-      g.fillStyle = PEARL[t] || (F.TURNS[t] ? U.hsla(F.TURNS[t].hue, 0.5, 0.82, 1) : 'rgba(235,205,144,0.35)');
+      g.fillStyle = t ? U.hsla(F.TURNS[t].hue, 0.5, 0.8 - i * 0.015, 1) : 'rgba(255,255,255,0.2)';
       g.beginPath();
       g.arc(c, c, Math.max(3, r), 0, U.TAU);
       g.fill();
-      g.strokeStyle = 'rgba(15,22,27,0.28)';
+      g.strokeStyle = 'rgba(255,255,255,0.35)';
       g.lineWidth = 0.8;
       g.stroke();
     }
     const outer = Math.max(3, R * (n / den));
-    g.fillStyle = 'rgba(255,250,236,0.75)';
+    g.fillStyle = 'rgba(255,255,255,0.7)';
     g.beginPath();
-    g.arc(c - outer * 0.35, c - outer * 0.35, Math.max(1, outer * 0.14), 0, U.TAU);
+    g.arc(c - outer * 0.35, c - outer * 0.35, Math.max(1, outer * 0.16), 0, U.TAU);
     g.fill();
   };
 
   UI.pearlModal = (p) => {
     const fam = F.FAMILIES[p.fam];
-    const kinds = new Set(p.layers).size;
     UI.showModal(
       (card, close) => {
-        let h = letterhead('「' + fam.name + '」的珍珠', num(p.layers.length) + ' 層　' + num(kinds) + ' 種陪法');
-        h += '<figure class="pearl-fig"><span class="win pearl-win"><canvas id="pearlBig" aria-label="珍珠的剖面"></canvas></span><ol class="strata">';
-        p.layers.forEach((t, i) => (h += '<li>' + num(i + 1) + '<span>' + (F.TURNS[t] ? F.TURNS[t].name : '') + '</span></li>'));
-        h += '</ol></figure>' + caption(1, '剖面。由裡到外，每一層是那一次你選的陪法。');
-        h += '<div class="btn-row"><button class="btn">收進珍珠盒</button></div>';
-        card.innerHTML = h;
+        card.innerHTML =
+          '<canvas class="pearl-cv big" id="pearlBig" width="160" height="160" aria-label="珍珠"></canvas>' +
+          '<h2 class="m-title">「' + fam.name + '」的珍珠</h2>' +
+          '<p class="m-text">這 ' + p.layers.length + ' 次「' + fam.name + '」，你用了 ' + new Set(p.layers).size + ' 種方式陪它。由裡到外，每一層是那一次你選的陪法。</p>' +
+          '<ol class="layers">' + p.layers.map((t) => '<li>' + turnChip(t) + '</li>').join('') + '</ol>' +
+          '<div class="btn-row center"><button class="btn">收進珍珠盒</button></div>';
         UI.drawPearl($('pearlBig'), p.layers, 160);
         card.querySelector('.btn').addEventListener('click', () => close());
       },
@@ -538,48 +360,43 @@
     );
   };
 
-  /* ================================================================
-   * 本週紀錄：只用你自己的字組成，不下結論、不給建議（clinical §7.4）
-   * ================================================================ */
-
-  /** 會在回顧裡重現的，只有這幾種陪法寫下的字；危機紀錄的原文永遠不重現 */
-  const SAID_TURNS = ['reframe', 'kind', 'savor', 'thank', 'keep', 'need'];
-
+  /** 每週回顧：只用你自己的字組成，不下結論、不給建議 */
   UI.recapModal = () => {
     const s = Game.state;
     const week = Game.weekEntries();
     s.eco.lastRecap = Date.now();
     Game.save();
-    const now = Date.now();
-    let html = letterhead('本週紀錄', num(mmdd(now - 6 * 86400000) + '～' + mmdd(now)));
-    if (!week.length) html += '<p class="empty">本週沒有紀錄。</p>';
+    const md = (ts) => {
+      const d = new Date(ts);
+      return d.getMonth() + 1 + '/' + d.getDate();
+    };
+    let html = '<div class="letter-seal" aria-hidden="true">' + icon('tides') + '</div><h2 class="m-title">這一週的海</h2><div class="letter recap">';
+    if (!week.length) html += '<p>這一週很安靜，海也是。</p>';
     else {
-      html += '<ul class="ledger"><li>共 ' + num(week.length) + ' 筆。</li>';
+      html += '<p>這一週，你替 <b>' + week.length + '</b> 份感覺取了名字。</p>';
       const wc = {};
       for (const e of week) for (const w of e.words || []) wc[w] = (wc[w] || 0) + 1;
       const top = Object.keys(wc).sort((a, b) => wc[b] - wc[a]).slice(0, 3);
-      if (top.length) html += '<li>最常出現：' + top.map((w) => '「' + esc(w) + '」').join('') + '</li>';
+      if (top.length) html += '<p>最常出現的是' + top.map((w) => '「' + esc(w) + '」').join('') + '。</p>';
       const turns = Array.from(new Set(week.map((e) => e.turn).filter((t) => F.TURNS[t])));
-      if (turns.length) html += '<li>陪法 ' + num(turns.length) + ' 種：' + turns.map((t) => F.TURNS[t].name).join('、') + '</li>';
+      if (turns.length) html += '<p>你用了 ' + turns.length + ' 種方式陪它們：</p><div class="chips center">' + turns.map((t) => turnChip(t)).join('') + '</div>';
       const measured = week.filter((e) => !F.isPositive(e.fam) && e.i0 != null && e.i1 != null && F.TURNS[e.turn]);
       if (measured.length) {
         const down = measured.filter((e) => e.i1 < e.i0).length;
         const same = measured.filter((e) => e.i1 === e.i0).length;
-        html += '<li>陪完之後：變小 ' + num(down) + ' 次、沒變 ' + num(same) + ' 次、變大 ' + num(measured.length - down - same) + ' 次。</li>';
+        html += '<p>陪完之後：變小 ' + down + ' 次、沒變 ' + same + ' 次、變大 ' + (measured.length - down - same) + ' 次。</p>';
       }
-      const done = s.entries.filter((e) => !e.crisis && e.step && e.step.status === 'done' && now - (e.step.doneAt || 0) < 7 * 86400000);
-      if (done.length) html += '<li>做到了：' + done.slice(-4).map((e) => '「<span class="hand">' + esc(e.step.what) + '</span>」').join('') + '</li>';
+      const done = s.entries.filter((e) => e.step && e.step.status === 'done' && Date.now() - (e.step.doneAt || 0) < 7 * 86400000);
+      if (done.length) html += '<p>你做到了：' + done.slice(-4).map((e) => '「' + esc(e.step.what) + '」').join('') + '。</p>';
       const pos = week.filter((e) => F.isPositive(e.fam)).length;
-      if (pos) html += '<li>舒服的感覺：' + num(pos) + ' 筆</li>';
-      html += '</ul>';
-      const said = week.filter((e) => !e.crisis && e.text && SAID_TURNS.includes(e.turn)).slice(-3);
+      if (pos) html += '<p>其中有 ' + pos + ' 份，是舒服的感覺。</p>';
+      const said = week.filter((e) => !e.crisis && e.text && ['reframe', 'kind', 'savor', 'thank', 'keep', 'need'].includes(e.turn)).slice(-3);
       if (said.length) {
-        html += '<h3 class="sub-h">這週你寫給自己的話</h3><ul class="memos">';
-        for (const e of said) html += memo(e);
-        html += '</ul>';
+        html += '<p>這週你寫給自己的話：</p>';
+        for (const e of said) html += '<blockquote class="said"><span>' + md(e.t) + '・' + F.TURNS[e.turn].name + '</span>' + esc(e.text) + '</blockquote>';
       }
     }
-    html += '<div class="btn-row"><button class="btn-2" data-r="tides">潮汐圖</button><button class="btn" data-r="ok">收下</button></div>';
+    html += '</div><div class="btn-row center"><button class="btn ghost" data-r="tides">打開潮汐圖</button><button class="btn" data-r="ok">收好</button></div>';
     UI.showModal(
       (card, close) => {
         card.innerHTML = html;
@@ -593,15 +410,21 @@
     );
   };
 
-  /** 精簡版紀錄：日期、陪法、那時候的字，下面是你寫的話（手寫、坐在書寫線上） */
-  function memo(e) {
-    const t = F.TURNS[e.turn];
-    const label = e.turn === 'reframe' && F.LENSES[e.lens] ? F.LENSES[e.lens].name : t ? t.name : '';
-    return (
-      '<li class="memo"><span class="memo-m">' + num(mmdd(e.t)) + '<span>' + label + '</span>' + (e.words && e.words[0] ? '<span>「' + esc(e.words[0]) + '」</span>' : '') + '</span>' +
-      '<p class="lined">' + esc(e.text) + '</p></li>'
+  UI.pastLetterModal = (letter) => {
+    const d = new Date(letter.t);
+    const turn = F.TURNS[letter.turn];
+    UI.showModal(
+      (card, close) => {
+        card.innerHTML =
+          '<div class="letter-seal" aria-hidden="true">' + icon('keep') + '</div>' +
+          '<h2 class="m-title">瓶子裡，是你寫的字</h2>' +
+          '<p class="m-text">' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日，你在「' + (turn ? turn.name : '') + '」的時候寫過：</p>' +
+          '<div class="letter"><p class="letter-main">' + esc(letter.text) + '</p><p class="letter-sign">— 那時候的你</p></div>' +
+          '<div class="btn-row center"><button class="btn">收好</button></div>';
+        card.querySelector('.btn').addEventListener('click', () => close());
+      },
+      { cls: 'paper' }
     );
-  }
-  UI.paper.memo = memo;
-  UI.paper.SAID_TURNS = SAID_TURNS;
+  };
+
 })((window.MJ = window.MJ || {}));

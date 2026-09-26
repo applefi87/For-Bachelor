@@ -16,17 +16,10 @@
   const TAU = U.TAU;
   const DAY = 86400000;
 
-  // 顏色都從 feelings.js 的資料色來（color.md §5.3、§5.5）。不再把飽和度撐到 0.3：
-  // 疲憊和說不上來本來就該是低彩度，負面家族的顏色不該最吵
   const famHue = (f) => (F.FAMILIES[f] || F.FAMILIES.calm).hue;
-  const famSat = (f) => (F.FAMILIES[f] || F.FAMILIES.calm).sat;
+  const famSat = (f) => Math.max(0.3, (F.FAMILIES[f] || F.FAMILIES.calm).sat);
   const seedOf = (id) => U.seeded(U.hashStr(String(id)));
   const turnHue = (t) => (F.TURNS[t] ? F.TURNS[t].hue : 200);
-  const turnSat = (t) => (F.TURNS[t] ? F.TURNS[t].sat : 0.4);
-  /** 說明牌的目標圈：半徑 = 外觀半徑 + 8，限制在 16–64（art.md §5.5.2） */
-  const ring = (x, y, r) => [x, y, U.clamp(r + 8, 16, 64)];
-  /** 沙地上的深度（0 = 後緣，1 = 靠近玻璃）：同一種生物不擠在同一條線上 */
-  const depthOf = (id) => 0.15 + seedOf(id + 'dz')() * 0.85;
 
   /* ============================================================
    * 殼：寄居蟹背的、沙地上空著的
@@ -237,7 +230,7 @@
       this.appear = 1;
     }
     get r() {
-      return (5 + (this.entry.i0 || 5) * 0.5) * this.eco.u;
+      return (5 + (this.entry.i0 || 5) * 0.5) * this.eco.game.unit;
     }
     update(dt) {
       const G = this.eco.game;
@@ -266,7 +259,7 @@
       ctx.save();
       ctx.globalAlpha = this.appear;
       ctx.globalCompositeOperation = 'lighter';
-      MJ.glow(ctx, this.x, this.y, r * 7, hue, sat, 0.62, 0.85);
+      U.drawGlow(ctx, this.x, this.y, r * 7, hue, sat, 0.62, 0.85);
       ctx.translate(this.x, this.y);
       ctx.rotate(this.rot);
       ctx.strokeStyle = U.hsla(hue, sat, 0.86, 0.55);
@@ -298,10 +291,6 @@
     hit(x, y) {
       return Math.hypot(x - this.x, y - this.y) < this.r * 2 + 12;
     }
-    /** 說明牌的目標圈 [x, y, r]（CSS 像素）；不在了回傳 null */
-    anchor() {
-      return this.eco.alive(this) ? ring(this.x, this.y, this.r * 1.4) : null;
-    }
   }
 
   /* ============================================================
@@ -326,14 +315,13 @@
       this.flee = null;
       this.appear = 1;
       this.shell = null;
-      this.dz = depthOf(entry.id);
     }
     get size() {
       const age = (Date.now() - this.entry.t) / DAY;
       return 0.74 + Math.min(0.55, age * 0.04);
     }
     get k() {
-      return 1.45 * this.eco.u * this.size * (0.9 + 0.2 * this.dz);
+      return 1.45 * this.eco.game.unit * this.size;
     }
     update(dt) {
       const G = this.eco.game;
@@ -348,7 +336,7 @@
           this.inCave = U.rand(4, 7);
         } else {
           this.dir = d > 0 ? 1 : -1;
-          this.x += this.dir * 46 * this.eco.u * dt;
+          this.x += this.dir * 46 * G.unit * dt;
           this.legPh += dt * 22;
           this.state = 'walk';
           return;
@@ -379,7 +367,7 @@
         }
       }
       if (this.state === 'walk') {
-        this.x += this.dir * 9 * this.eco.u * (0.8 + this.size * 0.3) * dt;
+        this.x += this.dir * 9 * G.unit * (0.8 + this.size * 0.3) * dt;
         this.legPh += dt * 9;
         if (this.x < 24) {
           this.x = 24;
@@ -409,12 +397,11 @@
       if (this.inCave > 0) return;
       const t = this.eco.t;
       const k = this.k;
-      const hopY = Math.sin(Math.min(1, this.hop) * Math.PI) * 20 * this.eco.u;
-      const y = this.eco.ground(this.x, this.dz) + 1 - hopY;
+      const hopY = Math.sin(Math.min(1, this.hop) * Math.PI) * 20 * G.unit;
+      const y = G.world.sandY(this.x) + 1 - hopY;
       const hue = famHue(this.entry.fam);
-      const sat = Math.min(0.5, famSat(this.entry.fam) + 0.08);
-      const body = U.hsla(hue, sat, 0.56, 1);
-      const dark = U.hsla(hue, sat * 0.9, 0.38, 1);
+      const body = U.hsla(hue, 0.5, 0.56, 1);
+      const dark = U.hsla(hue, 0.45, 0.38, 1);
       const hidden = this.hide > 0;
       ctx.save();
       ctx.globalAlpha = this.appear;
@@ -460,7 +447,7 @@
       }
 
       // 觸角
-      ctx.strokeStyle = U.hsla(hue, sat * 0.8, 0.72, 0.9);
+      ctx.strokeStyle = U.hsla(hue, 0.4, 0.72, 0.9);
       ctx.lineWidth = 0.7;
       ctx.beginPath();
       const aw = Math.sin(t * 2.3 + this.ph) * 2;
@@ -472,7 +459,7 @@
 
       // 身體
       const g = ctx.createLinearGradient(0, -12, 0, -2);
-      g.addColorStop(0, U.hsla(hue, sat, 0.66, 1));
+      g.addColorStop(0, U.hsla(hue, 0.5, 0.66, 1));
       g.addColorStop(1, body);
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -502,7 +489,7 @@
       legs(body, 0);
 
       // 大小螯
-      ctx.fillStyle = U.hsla(hue, sat, 0.6, 1);
+      ctx.fillStyle = U.hsla(hue, 0.55, 0.6, 1);
       ctx.beginPath();
       ctx.ellipse(13.2, -5, 4.3, 3, -0.25, 0, TAU);
       ctx.fill();
@@ -522,13 +509,8 @@
       if (this.x == null || this.inCave > 0) return false;
       const G = this.eco.game;
       const k = this.k;
-      const cy = this.eco.ground(this.x, this.dz) - 10 * k;
+      const cy = G.world.sandY(this.x) - 10 * k;
       return Math.abs(x - this.x) < 22 * k + 8 && Math.abs(y - cy) < 16 * k + 10;
-    }
-    anchor() {
-      if (!this.eco.alive(this) || this.x == null) return null;
-      const k = this.k;
-      return ring(this.x + 4 * k * this.dir, this.eco.ground(this.x, this.dz) - 9 * k, 16 * k);
     }
   }
 
@@ -539,7 +521,6 @@
       this.shell = shell;
       this.eco = eco;
       this.xf = 0.08 + seedOf(shell.id + 'x')() * 0.84;
-      this.dz = depthOf(shell.id);
       this.appear = 1;
     }
     update(dt) {
@@ -548,11 +529,10 @@
     draw(ctx) {
       const G = this.eco.game;
       const x = this.xf * G.W;
-      const k = 1.45 * this.eco.u;
-      const gy = this.eco.ground(x, this.dz);
+      const k = 1.45 * G.unit;
       ctx.save();
       ctx.globalAlpha = this.appear * 0.95;
-      ctx.translate(x, gy - 8 * k * this.shell.size);
+      ctx.translate(x, G.world.sandY(x) - 8 * k * this.shell.size);
       ctx.rotate(0.35);
       ctx.scale(k, k);
       drawShell(ctx, this.shell.type, this.shell.size, this.eco.t);
@@ -560,20 +540,14 @@
       if (this.shell.gift) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        MJ.glow(ctx, x, gy - 8 * k, 50 * k, 44, 0.6, 0.75, 0.3 + 0.15 * Math.sin(this.eco.t * 2));
+        U.drawGlow(ctx, x, G.world.sandY(x) - 8 * k, 50 * k, 48, 0.6, 0.75, 0.3 + 0.15 * Math.sin(this.eco.t * 2));
         ctx.restore();
       }
     }
     hit(x, y) {
       const G = this.eco.game;
       const sx = this.xf * G.W;
-      return Math.abs(x - sx) < 18 * this.eco.u && Math.abs(y - (this.eco.ground(sx, this.dz) - 8 * this.eco.u)) < 16 * this.eco.u;
-    }
-    anchor() {
-      if (!this.eco.alive(this)) return null;
-      const x = this.xf * this.eco.game.W;
-      const k = 1.45 * this.eco.u;
-      return ring(x, this.eco.ground(x, this.dz) - 8 * k * this.shell.size, 12 * k * this.shell.size);
+      return Math.abs(x - sx) < 18 * G.unit && Math.abs(y - (G.world.sandY(sx) - 8 * G.unit)) < 16 * G.unit;
     }
   }
 
@@ -601,7 +575,7 @@
     }
     update(dt, school) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const t = this.eco.t;
       const wob = Math.sin(t * 0.7 + this.ph) * 10 * u;
       const tx = school.x + this.ox * u + wob;
@@ -616,7 +590,7 @@
     }
     draw(ctx) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const L = this.len * u;
       const Hh = L * 0.28;
       const t = this.eco.t;
@@ -662,22 +636,18 @@
         const px = L * (0.26 - i * 0.12);
         const py = Hh * 0.45;
         const tw = 0.6 + 0.4 * Math.sin(t * 3 + i + this.ph);
-        // 發光器依需要分色：hsl(need.hue, 45%, 72%)（color.md §5.6）
-        MJ.glow(ctx, px, py, 7 * u, needHue, 0.45, 0.72, tw);
-        ctx.fillStyle = U.hsla(needHue, 0.45, 0.86, 0.9);
+        U.drawGlow(ctx, px, py, 7 * u, needHue, 0.95, 0.6, tw);
+        ctx.fillStyle = U.hsla(needHue, 0.9, 0.86, 0.9);
         ctx.beginPath();
         ctx.arc(px, py, 0.9 * u, 0, TAU);
         ctx.fill();
       }
-      MJ.glow(ctx, L * 0.42, Hh * 0.1, 9 * u, needHue, 0.45, 0.72, 0.7);
+      U.drawGlow(ctx, L * 0.42, Hh * 0.1, 9 * u, needHue, 0.9, 0.62, 0.7);
       ctx.restore();
     }
     hit(x, y) {
-      const u = this.eco.u;
+      const u = this.eco.game.unit;
       return Math.hypot(x - this.x, y - this.y) < this.len * u * 0.7 + 12;
-    }
-    anchor() {
-      return this.eco.alive(this) ? ring(this.x, this.y, this.len * this.eco.u * 0.55) : null;
     }
   }
 
@@ -703,7 +673,7 @@
     }
     update(dt) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const [cx, cy] = this.home.center();
       this.a += this.spin * dt;
       if (this.dive > 0) this.dive -= dt;
@@ -723,14 +693,14 @@
     }
     draw(ctx) {
       if (this.x == null) return;
-      const u = this.eco.u;
+      const u = this.eco.game.unit;
       const L = 16 * u;
       const t = this.eco.t;
       const hue = famHue(this.entry.fam);
       ctx.save();
       ctx.globalAlpha = this.appear;
       ctx.globalCompositeOperation = 'lighter';
-      MJ.glow(ctx, this.x, this.y, L * 2.4, hue, famSat(this.entry.fam), F.FAMILIES[this.entry.fam] ? F.FAMILIES[this.entry.fam].l : 0.6, 0.3);
+      U.drawGlow(ctx, this.x, this.y, L * 2.4, hue, famSat(this.entry.fam), 0.6, 0.35);
       ctx.globalCompositeOperation = 'source-over';
       ctx.translate(this.x, this.y);
       ctx.scale(this.face, 1);
@@ -739,7 +709,7 @@
       ctx.save();
       ctx.translate(-L * 0.46, 0);
       ctx.rotate(wag);
-      ctx.fillStyle = '#d9854a';
+      ctx.fillStyle = '#ff7a22';
       ctx.strokeStyle = '#1b1210';
       ctx.lineWidth = 0.9;
       ctx.beginPath();
@@ -750,7 +720,7 @@
       ctx.stroke();
       ctx.restore();
       // 背鰭
-      ctx.fillStyle = '#dd8e55';
+      ctx.fillStyle = '#ff8a30';
       ctx.beginPath();
       ctx.moveTo(L * 0.15, -L * 0.24);
       ctx.quadraticCurveTo(-L * 0.05, -L * 0.48, -L * 0.3, -L * 0.2);
@@ -759,13 +729,13 @@
       const bodyPath = new Path2D();
       bodyPath.ellipse(0, 0, L * 0.5, L * 0.28, 0, 0, TAU);
       const g = ctx.createLinearGradient(0, -L * 0.3, 0, L * 0.3);
-      g.addColorStop(0, '#e39a5e');
-      g.addColorStop(1, '#c86a33');
+      g.addColorStop(0, '#ff9a3c');
+      g.addColorStop(1, '#f25d12');
       ctx.fillStyle = g;
       ctx.fill(bodyPath);
       ctx.save();
       ctx.clip(bodyPath);
-      ctx.fillStyle = '#efe8df';
+      ctx.fillStyle = '#fff8f0';
       ctx.strokeStyle = '#1b1210';
       ctx.lineWidth = 0.8;
       for (const [x, w] of [[L * 0.24, L * 0.1], [-L * 0.03, L * 0.13], [-L * 0.36, L * 0.07]]) {
@@ -779,7 +749,7 @@
       ctx.lineWidth = 0.7;
       ctx.stroke(bodyPath);
       // 胸鰭
-      ctx.fillStyle = 'rgba(221,142,85,0.9)';
+      ctx.fillStyle = 'rgba(255,140,60,0.9)';
       ctx.beginPath();
       ctx.ellipse(L * 0.08, L * 0.08, L * 0.1, L * 0.05, 0.5 + wag, 0, TAU);
       ctx.fill();
@@ -792,11 +762,7 @@
     }
     hit(x, y) {
       if (this.x == null) return false;
-      return Math.hypot(x - this.x, y - this.y) < 13 * this.eco.u + 10;
-    }
-    anchor() {
-      if (!this.eco.alive(this) || this.x == null) return null;
-      return ring(this.x, this.y, 10 * this.eco.u);
+      return Math.hypot(x - this.x, y - this.y) < 13 * this.eco.game.unit + 10;
     }
   }
 
@@ -807,10 +773,7 @@
       this.eco = eco;
       const r = seedOf(entries[0].id + 'a');
       this.xf = 0.3 + r() * 0.32;
-      this.dz = depthOf(entries[0].id + 'a') * 0.4;
-      // 海葵的身體用陪法的顏色（color.md §5.5：kind #d68d9a），不用家族色
-      this.hue = F.TURNS.kind.hue;
-      this.sat = F.TURNS.kind.sat;
+      this.hue = famHue(entries[0].fam);
       this.arms = [];
       for (let i = 0; i < 22; i++) this.arms.push({ a: -Math.PI / 2 + (i / 21 - 0.5) * 2.5, len: 30 + r() * 20, ph: r() * 10 });
       this.fish = [];
@@ -822,7 +785,7 @@
     center() {
       const G = this.eco.game;
       const x = this.xf * G.W;
-      return [x, this.eco.ground(x, this.dz) - 34 * this.eco.u * this.scale];
+      return [x, G.world.sandY(x) - 34 * G.unit * this.scale];
     }
     update(dt) {
       if (this.appear < 1) this.appear = Math.min(1, this.appear + dt * 0.6);
@@ -830,12 +793,11 @@
     }
     draw(ctx) {
       const G = this.eco.game;
-      const u = this.eco.u * this.scale * (0.5 + 0.5 * this.appear);
+      const u = G.unit * this.scale * (0.5 + 0.5 * this.appear);
       const x = this.xf * G.W;
-      const base = this.eco.ground(x, this.dz) + 3;
+      const base = G.world.sandY(x) + 3;
       const t = this.eco.t;
       const hue = this.hue;
-      const sat = this.sat;
       const n = 12 + this.entries.length * 4;
       ctx.save();
       ctx.globalAlpha = this.appear;
@@ -846,7 +808,7 @@
         let px = x;
         let py = base - 20 * u;
         let a = -Math.PI / 2 + (i / (n - 1) - 0.5) * 2.4;
-        ctx.strokeStyle = U.hsla(hue, sat * 0.55, 0.56, 0.85);
+        ctx.strokeStyle = U.hsla(hue, 0.5, 0.5, 0.92);
         ctx.lineWidth = 3.4 * u;
         ctx.beginPath();
         ctx.moveTo(px, py);
@@ -860,8 +822,8 @@
         tips.push(px, py, arm.ph);
       }
       const g = ctx.createLinearGradient(0, base - 24 * u, 0, base);
-      g.addColorStop(0, U.hsla(hue, sat * 0.8, 0.36, 1));
-      g.addColorStop(1, U.hsla(hue, sat * 0.6, 0.16, 1));
+      g.addColorStop(0, U.hsla(hue, 0.45, 0.36, 1));
+      g.addColorStop(1, U.hsla(hue, 0.35, 0.16, 1));
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.moveTo(x - 20 * u, base);
@@ -872,7 +834,7 @@
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < tips.length; i += 3) {
         const a = 0.55 + 0.45 * Math.sin(t * 1.7 + tips[i + 2]);
-        MJ.glow(ctx, tips[i], tips[i + 1], 14 * u, hue, sat, 0.7, a * 0.45);
+        U.drawGlow(ctx, tips[i], tips[i + 1], 14 * u, hue + 15, 0.9, 0.7, a * 0.9);
       }
       ctx.restore();
     }
@@ -881,13 +843,8 @@
     }
     hit(x, y) {
       const [cx, cy] = this.center();
-      const u = this.eco.u * this.scale;
+      const u = this.eco.game.unit * this.scale;
       return Math.abs(x - cx) < 34 * u && Math.abs(y - cy) < 30 * u;
-    }
-    anchor() {
-      if (!this.eco.alive(this)) return null;
-      const [cx, cy] = this.center();
-      return ring(cx, cy, 30 * this.eco.u * this.scale);
     }
   }
 
@@ -908,7 +865,6 @@
       this.face = 1;
       this.appear = 1;
       this.journey = 0;
-      this.dz = depthOf(entry.id);
     }
     get done() {
       return this.entry.step && this.entry.step.status === 'done';
@@ -919,11 +875,11 @@
     }
     update(dt) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       if (this.appear < 1) this.appear = Math.min(1, this.appear + dt * 0.6);
       if (this.x == null) {
         this.x = this.xf * G.W;
-        this.y = this.eco.ground(this.x, this.dz) - 8 * u;
+        this.y = G.world.sandY(this.x) - 8 * u;
       }
       if (this.journey > 0) {
         // 出發旅行：往右游出畫面，再帶著殼游回來
@@ -944,7 +900,7 @@
         // 還沒做的小事：在沙地上休息，不急
         const tx = this.xf * G.W;
         this.x += (tx - this.x) * Math.min(1, dt * 0.5);
-        const ty = this.eco.ground(this.x, this.dz) - 8 * u * this.size;
+        const ty = G.world.sandY(this.x) - 8 * u * this.size;
         this.y += (ty - this.y) * Math.min(1, dt * 0.8);
         this.face = 1;
       } else {
@@ -961,7 +917,7 @@
       if (this.x == null) return;
       const G = this.eco.game;
       const t = this.eco.t;
-      const k = 1.35 * this.eco.u * this.size;
+      const k = 1.35 * G.unit * this.size;
       const swim = this.done || this.journey > 0;
       const flap = swim ? Math.sin(t * 1.8 + this.ph) : Math.sin(t * 0.4 + this.ph) * 0.1;
       const bob = swim ? Math.sin(t * 1.8 + this.ph + 1) * 2 : 0;
@@ -1040,13 +996,11 @@
       ctx.restore();
       // 背上的小燈：還沒做的那件小事
       if (!this.done || this.journey > 0) {
-        const back = this.journey > 0 && this.journey < 11;
-        const hue = back ? 42 : famHue(this.entry.fam);
-        const sat = back ? 0.6 : famSat(this.entry.fam);
+        const hue = famHue(this.entry.fam);
         ctx.globalCompositeOperation = 'lighter';
         const tw = 0.7 + 0.3 * Math.sin(t * 2 + this.ph);
-        MJ.glow(ctx, 0, -15, 16, hue, sat, 0.68, tw);
-        ctx.fillStyle = U.hsla(hue, sat, 0.85, 0.9);
+        U.drawGlow(ctx, 0, -15, 16, this.journey > 0 && this.journey < 11 ? 48 : hue, 0.9, 0.65, tw);
+        ctx.fillStyle = U.hsla(this.journey > 0 && this.journey < 11 ? 48 : hue, 0.7, 0.85, 0.9);
         ctx.beginPath();
         ctx.arc(0, -15, 2.2, 0, TAU);
         ctx.fill();
@@ -1055,13 +1009,8 @@
     }
     hit(x, y) {
       if (this.x == null) return false;
-      const k = 1.35 * this.eco.u * this.size;
+      const k = 1.35 * this.eco.game.unit * this.size;
       return Math.abs(x - this.x) < 26 * k + 8 && Math.abs(y - (this.y - 5 * k)) < 14 * k + 10;
-    }
-    anchor() {
-      if (!this.eco.alive(this) || this.x == null) return null;
-      const k = 1.35 * this.eco.u * this.size;
-      return ring(this.x + 2 * k * this.face, this.y - 5 * k, 22 * k);
     }
   }
 
@@ -1084,19 +1033,18 @@
       this.x = null;
       this.y = null;
       this.bx = null;
-      this.dz = depthOf(entry.id);
     }
     /** 這隻海馬捲著的那根海草，長在哪裡 */
     baseX() {
       const G = this.eco.game;
       const bed = this.eco.bedX();
-      if (bed != null) return bed * G.W + (this.slot - 0.5) * 110 * this.eco.u;
+      if (bed != null) return bed * G.W + (this.slot - 0.5) * 110 * G.unit;
       return this.xf * G.W;
     }
     /** 海草上某一點（t = 0 在沙裡，1 在頂端） */
     bladeAt(t, bx, base) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const sway = Math.sin(this.eco.t * 0.7 + this.ph) * 10 * u + G.world.current * 6;
       const L = this.len * u;
       const cx = bx + sway * 0.4;
@@ -1111,20 +1059,20 @@
       if (this.appear < 1) this.appear = Math.min(1, this.appear + dt * 0.7);
       const tx = this.baseX();
       this.bx = this.bx == null ? tx : this.bx + (tx - this.bx) * Math.min(1, dt * 0.5);
-      const [x, y] = this.bladeAt(this.hold, this.bx, this.eco.ground(this.bx, this.dz) + 2);
+      const [x, y] = this.bladeAt(this.hold, this.bx, G.world.sandY(this.bx) + 2);
       this.x = x;
       this.y = y;
     }
     pos() {
       if (this.x == null) this.update(0);
-      return [this.x, this.y - 22 * this.eco.u];
+      return [this.x, this.y - 22 * this.eco.game.unit];
     }
     drawBlade(ctx) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const bx = this.bx == null ? this.baseX() : this.bx;
-      const base = this.eco.ground(bx, this.dz) + 2;
-      ctx.strokeStyle = 'hsla(128,28%,32%,0.95)';
+      const base = G.world.sandY(bx) + 2;
+      ctx.strokeStyle = 'hsla(128,34%,34%,0.95)';
       ctx.lineCap = 'round';
       ctx.lineWidth = 3.2 * u;
       ctx.beginPath();
@@ -1134,14 +1082,14 @@
         else ctx.lineTo(x, y);
       }
       ctx.stroke();
-      ctx.strokeStyle = 'hsla(120,30%,50%,0.3)';
+      ctx.strokeStyle = 'hsla(120,40%,52%,0.35)';
       ctx.lineWidth = 1 * u;
       ctx.stroke();
     }
     draw(ctx) {
       const G = this.eco.game;
       if (this.x == null) this.update(0);
-      const k = 1.45 * this.eco.u;
+      const k = 1.45 * G.unit;
       const t = this.eco.t;
       const hue = famHue(this.entry.fam);
       const sat = Math.min(0.55, famSat(this.entry.fam));
@@ -1149,7 +1097,7 @@
       ctx.globalAlpha = this.appear;
       this.drawBlade(ctx);
       ctx.globalCompositeOperation = 'lighter';
-      MJ.glow(ctx, this.x, this.y - 18 * k, 40 * k, hue, sat, 0.6, 0.35);
+      U.drawGlow(ctx, this.x, this.y - 18 * k, 40 * k, hue, sat, 0.6, 0.35);
       ctx.globalCompositeOperation = 'source-over';
       ctx.translate(this.x, this.y);
       ctx.scale(this.face * k, k);
@@ -1228,14 +1176,8 @@
     }
     hit(x, y) {
       if (this.x == null) return false;
-      const k = 1.45 * this.eco.u;
+      const k = 1.45 * this.eco.game.unit;
       return Math.abs(x - (this.x + 5 * k * this.face)) < 12 * k + 10 && y < this.y + 6 * k + 8 && y > this.y - 40 * k - 8;
-    }
-    anchor() {
-      if (!this.eco.alive(this)) return null;
-      if (this.x == null) this.update(0);
-      const k = 1.45 * this.eco.u;
-      return ring(this.x + 5 * k * this.face, this.y - 18 * k, 18 * k);
     }
   }
 
@@ -1262,14 +1204,10 @@
           this.byEntry.set(e.id, list);
         }
         const r = seedOf(e.id + 't');
-        // 剛倒出來的：從被吃掉（或光球炸開）的地方散開；舊的散在上半部
-        const o = this.eco.fresh && this.origin && !list.length ? this.origin : null;
         while (list.length < want) {
-          const a = r() * TAU;
-          const d = Math.sqrt(r()) * 110 * this.eco.u;
           list.push({
-            x: o ? o.x + Math.cos(a) * d : r() * G.W,
-            y: o ? U.clamp(o.y + Math.sin(a) * d * 0.7, 12, G.world.floorY - 20) : G.H * (0.04 + Math.pow(r(), 1.8) * 0.45),
+            x: r() * G.W,
+            y: G.H * (0.04 + Math.pow(r(), 1.8) * 0.45),
             ph: r() * TAU,
             flash: this.eco.fresh ? 1 : 0,
             s: 0.6 + r() * 0.8,
@@ -1277,7 +1215,6 @@
         }
         if (list.length > want) list.length = want;
       }
-      this.origin = null;
       for (const id of Array.from(this.byEntry.keys())) if (!live.has(id)) this.byEntry.delete(id);
       this.pts = [];
       for (const list of this.byEntry.values()) for (const p of list) this.pts.push(p);
@@ -1328,75 +1265,16 @@
     }
     draw(ctx) {
       if (!this.pts.length) return;
-      const u = this.eco.u;
-      const tHue = F.TURNS.release.hue;
-      const tSat = F.TURNS.release.sat;
+      const u = this.eco.game.unit;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (const p of this.pts) {
         const f = p.flash;
-        if (f > 0.05) MJ.glow(ctx, p.x, p.y, (8 + 18 * f) * u * p.s, tHue, tSat, 0.62, f);
-        ctx.fillStyle = 'rgba(163,215,234,' + (0.12 + f * 0.8).toFixed(3) + ')';
+        if (f > 0.05) U.drawGlow(ctx, p.x, p.y, (8 + 18 * f) * u * p.s, 192, 1, 0.58, f);
+        ctx.fillStyle = 'rgba(150,230,255,' + (0.12 + f * 0.8).toFixed(3) + ')';
         ctx.fillRect(p.x - 0.8, p.y - 0.8, 1.6, 1.6);
       }
       ctx.restore();
-    }
-    /** 某一筆「倒出來」的藍眼淚群：以群集中心為圓心，半徑用上限 64（art.md §5.5.2） */
-    anchorOf(entryId) {
-      const list = this.byEntry.get(entryId);
-      if (!list || !list.length) return null;
-      let x = 0;
-      let y = 0;
-      for (const p of list) {
-        x += p.x;
-        y += p.y;
-      }
-      return ring(x / list.length, y / list.length, 64);
-    }
-  }
-
-  /** 說明牌指向某一筆藍眼淚時用的物件（kind 'tears'） */
-  class TearsRef {
-    constructor(entry, eco) {
-      this.kind = 'tears';
-      this.entry = entry;
-      this.eco = eco;
-    }
-    anchor() {
-      return this.eco.tears.anchorOf(this.entry.id);
-    }
-  }
-
-  /** 說明牌指向珊瑚礁裡的某一截珊瑚（kind 'coral'）。珊瑚每次重建都是新物件，所以用紀錄的 id 找 */
-  class CoralRef {
-    constructor(reef, entry, eco) {
-      this.kind = 'coral';
-      this.reef = reef;
-      this.entry = entry;
-      this.eco = eco;
-    }
-    get item() {
-      return this.reef.items.find((it) => it.entry.id === this.entry.id) || null;
-    }
-    anchor() {
-      const it = this.item;
-      if (!it || !this.eco.reefs.includes(this.reef)) return null;
-      const u = this.eco.u;
-      const [bx, by] = this.reef.base();
-      if (it.type === 'mound') return ring(bx + it.x * u, by - it.ry * 0.5 * u, it.rx * u);
-      let x = it.bx;
-      let y = it.by;
-      let n = 1;
-      for (const q of it.tips) {
-        x += q[0];
-        y += q[1];
-        n++;
-      }
-      x /= n;
-      y /= n;
-      let r = 8;
-      for (const q of it.tips) r = Math.max(r, Math.hypot(q[0] - x, q[1] - y));
-      return ring(bx + x * u, by + y * u, r * u * it.grow);
     }
   }
 
@@ -1455,7 +1333,7 @@
     }
     update(dt) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const t = this.eco.t;
       for (const it of this.items) if (it.grow < 1) it.grow = Math.min(1, it.grow + dt * 0.35);
       const [bx, by] = this.base();
@@ -1488,7 +1366,7 @@
     draw(ctx) {
       if (!this.items.length) return;
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const t = this.eco.t;
       const [bx, by] = this.base();
       const fedGlow = this.eco.tears && this.eco.tears.pts.length ? 1.4 : 1;
@@ -1526,7 +1404,7 @@
           }
           ctx.restore();
           ctx.globalCompositeOperation = 'lighter';
-          MJ.glow(ctx, 0, -it.ry * 0.6 * u, it.rx * 2.4 * u, hue, sat, 0.65, 0.3 * fedGlow);
+          U.drawGlow(ctx, 0, -it.ry * 0.6 * u, it.rx * 2.4 * u, hue, sat, 0.65, 0.3 * fedGlow);
         } else {
           ctx.translate(it.bx * u, it.by * u);
           ctx.scale(it.grow, it.grow);
@@ -1542,8 +1420,8 @@
           ctx.globalCompositeOperation = 'lighter';
           for (const [x, y, ph] of it.tips) {
             const a = (0.5 + 0.5 * Math.sin(t * 1.3 + ph)) * fedGlow;
-            MJ.glow(ctx, x * u, y * u, 12 * u, hue + 10, sat, 0.72, Math.min(1, a * 0.8));
-            ctx.fillStyle = U.hsla(hue + 10, sat * 0.8, 0.86, 0.8);
+            U.drawGlow(ctx, x * u, y * u, 12 * u, hue + 10, 0.9, 0.7, Math.min(1, a * 0.8));
+            ctx.fillStyle = U.hsla(hue + 10, 0.8, 0.86, 0.8);
             ctx.beginPath();
             ctx.arc(x * u, y * u, 1.5 * u, 0, TAU);
             ctx.fill();
@@ -1554,7 +1432,7 @@
       ctx.restore();
     }
     drawFish(ctx) {
-      const u = this.eco.u;
+      const u = this.eco.game.unit;
       const t = this.eco.t;
       for (const f of this.fish) {
         if (f.x == null) continue;
@@ -1565,7 +1443,7 @@
         ctx.rotate(ang);
         if (Math.cos(ang) < 0) ctx.scale(1, -1);
         const wag = Math.sin(t * 14 + f.ph) * L * 0.12;
-        ctx.fillStyle = 'hsl(180,34%,60%)';
+        ctx.fillStyle = 'hsl(172,70%,62%)';
         ctx.beginPath();
         ctx.moveTo(L * 0.5, 0);
         ctx.quadraticCurveTo(L * 0.1, -L * 0.38, -L * 0.35, 0);
@@ -1585,7 +1463,7 @@
       }
     }
     itemAt(x, y) {
-      const u = this.eco.u;
+      const u = this.eco.game.unit;
       const [bx, by] = this.base();
       let best = null;
       let bd = 22 * u;
@@ -1600,11 +1478,6 @@
         }
       }
       return best;
-    }
-    anchor() {
-      if (!this.eco.reefs.includes(this) || !this.items.length) return null;
-      const [bx, by] = this.base();
-      return ring(bx, by - 30 * this.eco.u, 52 * this.eco.u);
     }
   }
 
@@ -1646,7 +1519,6 @@
       this.layers = [];
       this.pearls = null;
       this.appear = 1;
-      this.dz = depthOf('oyster' + fam);
     }
     update(dt) {
       if (this.appear < 1) this.appear = Math.min(1, this.appear + dt * 0.6);
@@ -1658,9 +1530,9 @@
     }
     draw(ctx) {
       const G = this.eco.game;
-      const u = this.eco.u * 1.1;
+      const u = G.unit * 1.1;
       const x = this.xf * G.W;
-      const base = this.eco.ground(x, this.dz) + 1;
+      const base = G.world.sandY(x) + 1;
       const t = this.eco.t;
       ctx.save();
       ctx.globalAlpha = this.appear;
@@ -1678,7 +1550,7 @@
       ctx.fill();
       // 珍珠質內層
       const ng = ctx.createLinearGradient(-12 * u, -6 * u, 12 * u, -2 * u);
-      for (let i = 0; i <= 4; i++) ng.addColorStop(i / 4, U.hsla(t * 20 + i * 60, 0.25, 0.82, 0.9));
+      for (let i = 0; i <= 4; i++) ng.addColorStop(i / 4, U.hsla(t * 20 + i * 60, 0.35, 0.82, 0.9));
       ctx.fillStyle = ng;
       ctx.beginPath();
       ctx.ellipse(1 * u, -4 * u, 13 * u, 3.2 * u * (0.4 + this.open * 0.6), 0, 0, TAU);
@@ -1689,12 +1561,11 @@
         const pr = (2.4 + n * 0.45) * u;
         const py = -5 * u - this.open * 2 * u;
         ctx.globalCompositeOperation = 'lighter';
-        MJ.glow(ctx, 2 * u, py, pr * 7, turnHue(this.layers[n - 1]), 0.5, 0.8, 0.5 * this.open);
+        U.drawGlow(ctx, 2 * u, py, pr * 7, turnHue(this.layers[n - 1]), 0.5, 0.8, 0.5 * this.open);
         ctx.globalCompositeOperation = 'source-over';
         for (let i = n - 1; i >= 0; i--) {
           const rr = pr * ((i + 1) / n);
-          // 珍珠層：陪法色的淡色版（color.md §5.5，L ≈ .85）
-          ctx.fillStyle = U.hsla(turnHue(this.layers[i]), turnSat(this.layers[i]), 0.84, 1);
+          ctx.fillStyle = U.hsla(turnHue(this.layers[i]), 0.45, 0.82, 1);
           ctx.beginPath();
           ctx.arc(2 * u, py, rr, 0, TAU);
           ctx.fill();
@@ -1729,19 +1600,14 @@
       ctx.restore();
       // 家族的小光點
       ctx.globalCompositeOperation = 'lighter';
-      MJ.glow(ctx, -12 * u, -2 * u, 12 * u, famHue(this.fam), famSat(this.fam), 0.62, 0.6);
+      U.drawGlow(ctx, -12 * u, -2 * u, 12 * u, famHue(this.fam), famSat(this.fam), 0.62, 0.6);
       ctx.restore();
     }
     hit(x, y) {
       const G = this.eco.game;
       const ox = this.xf * G.W;
-      const oy = this.eco.ground(ox, this.dz) - 5 * this.eco.u;
-      return Math.abs(x - ox) < 20 * this.eco.u + 8 && Math.abs(y - oy) < 14 * this.eco.u + 8;
-    }
-    anchor() {
-      if (!this.eco.alive(this)) return null;
-      const ox = this.xf * this.eco.game.W;
-      return ring(ox, this.eco.ground(ox, this.dz) - 6 * this.eco.u, 18 * this.eco.u);
+      const oy = G.world.sandY(ox) - 5 * G.unit;
+      return Math.abs(x - ox) < 20 * G.unit + 8 && Math.abs(y - oy) < 14 * G.unit + 8;
     }
   }
 
@@ -1769,7 +1635,7 @@
     }
     draw(ctx) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const t = this.eco.t;
       const x = G.W - 46 * u;
       const base = G.world.sandY(x) + 2;
@@ -1808,7 +1674,7 @@
           a += Math.sin(t * 1.3 + i * 1.7 + s * 0.45) * 0.18 + side * f * 0.12;
           const nx = px + Math.cos(a) * (len / segs);
           const ny = Math.min(base, py + Math.sin(a) * (len / segs) + 1.2 * u);
-          ctx.strokeStyle = U.hsla(ah, turnSat(this.turns[0]) * 0.9, 0.46 - f * 0.08, 1);
+          ctx.strokeStyle = U.hsla(ah, 0.45, 0.46 - f * 0.08, 1);
           ctx.lineWidth = w;
           ctx.beginPath();
           ctx.moveTo(px, py);
@@ -1827,8 +1693,8 @@
       }
       // 身體
       const g = ctx.createRadialGradient(cx - 6 * u, cy - 16 * u, 2, cx, cy - 6 * u, 22 * u);
-      g.addColorStop(0, U.hsla(hue, 0.45, 0.66, 1));
-      g.addColorStop(1, U.hsla(hue, 0.4, 0.36, 1));
+      g.addColorStop(0, U.hsla(hue, 0.5, 0.66, 1));
+      g.addColorStop(1, U.hsla(hue, 0.45, 0.36, 1));
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.ellipse(cx, cy - 8 * u, 15 * u, 19 * u, -0.15, 0, TAU);
@@ -1840,7 +1706,7 @@
         const px = cx + Math.cos(a) * rr * 0.9;
         const py = cy - 12 * u + Math.sin(a) * rr;
         const s = (1.2 + Math.sin(t * 2 + i) * 0.6) * u * (this.flash > 0 ? 1.8 : 1);
-        ctx.fillStyle = U.hsla(this.colorAt(i + 3, t), 0.5, 0.64, 0.85);
+        ctx.fillStyle = U.hsla(this.colorAt(i + 3, t), 0.7, 0.62, 0.85);
         ctx.beginPath();
         ctx.arc(px, py, Math.max(0.3, s), 0, TAU);
         ctx.fill();
@@ -1858,17 +1724,10 @@
     }
     hit(x, y) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const cx = G.W - 42 * u;
       const cy = G.world.sandY(cx) - 26 * u;
       return this.appear > 0.5 && Math.abs(x - cx) < 40 * u && Math.abs(y - cy) < 34 * u;
-    }
-    anchor() {
-      if (!this.eco.alive(this)) return null;
-      const G = this.eco.game;
-      const u = this.eco.u;
-      const cx = G.W - 42 * u;
-      return ring(cx, G.world.sandY(cx) - 26 * u, 30 * u);
     }
   }
 
@@ -1895,7 +1754,7 @@
     }
     draw(ctx) {
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const t = this.eco.t;
       const [x, y] = this.pos();
       ctx.save();
@@ -1904,10 +1763,10 @@
       ctx.rotate(-0.25 + Math.sin(t * 0.9 + this.ph) * 0.12);
       ctx.scale(u * 0.75, u * 0.75);
       ctx.globalCompositeOperation = 'lighter';
-      MJ.glow(ctx, 0, 0, 70, F.TURNS.keep.hue, F.TURNS.keep.sat, 0.7, 0.45);
+      U.drawGlow(ctx, 0, 0, 70, 160, 0.5, 0.7, 0.45);
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(170,219,196,0.26)';
-      ctx.strokeStyle = 'rgba(214,238,228,0.7)';
+      ctx.fillStyle = 'rgba(160,230,210,0.28)';
+      ctx.strokeStyle = 'rgba(210,250,235,0.7)';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(-20, -9, 32, 18, 7);
@@ -1923,12 +1782,7 @@
     }
     hit(x, y) {
       const [bx, by] = this.pos();
-      return Math.hypot(x - bx, y - by) < 26 * this.eco.u + 8;
-    }
-    anchor() {
-      if (!this.eco.alive(this)) return null;
-      const [x, y] = this.pos();
-      return ring(x, y, 18 * this.eco.u);
+      return Math.hypot(x - bx, y - by) < 26 * this.eco.game.unit + 8;
     }
   }
 
@@ -1945,13 +1799,7 @@
       this.y = from ? from.y : -30;
       this.ty = from ? from.y : G.H * 0.38;
       this.age = 0;
-      this.kind = 'orb';
       this.words = (entry.words || []).join('、');
-    }
-    anchor() {
-      if (this.burst || !this.eco.orbs.includes(this)) return null;
-      const grow = this.age > 1.5 ? 1 + (this.age - 1.5) * 0.9 : 1;
-      return ring(this.x, this.y, 26 * this.eco.u * grow);
     }
     update(dt) {
       this.age += dt;
@@ -1964,7 +1812,7 @@
     draw(ctx) {
       if (this.burst) return;
       const G = this.eco.game;
-      const u = this.eco.u;
+      const u = G.unit;
       const hue = famHue(this.entry.fam);
       const sat = famSat(this.entry.fam);
       const k = Math.min(1, this.age / 0.6);
@@ -1972,18 +1820,17 @@
       const r = 26 * u * grow;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      MJ.glow(ctx, this.x, this.y, r * 6, hue, sat, 0.62, k);
+      U.drawGlow(ctx, this.x, this.y, r * 6, hue, sat, 0.62, k);
       ctx.strokeStyle = U.hsla(hue, sat, 0.85, 0.5 * k);
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.arc(this.x, this.y, r, 0, TAU);
       ctx.stroke();
       ctx.globalCompositeOperation = 'source-over';
-      // 選的感覺字是館方的詞彙：印刷體（黑體）
-      ctx.font = '500 ' + Math.round(15 * Math.max(0.87, u)) + 'px ' + MJ.FONT;
+      ctx.font = Math.round(15 * Math.max(0.8, u)) + 'px ' + MJ.FONT;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(234,232,226,' + (0.9 * k).toFixed(3) + ')';
+      ctx.fillStyle = 'rgba(255,250,240,' + (0.9 * k).toFixed(3) + ')';
       ctx.fillText(this.words, this.x, this.y);
       ctx.restore();
     }
@@ -2016,55 +1863,6 @@
 
     get entries() {
       return this.game.state.entries;
-    }
-    /**
-     * 心情長出來的生物的尺寸單位。手機（短邊 < 500）上 game.unit 會被壓到 0.62，
-     * 生物小到看不清楚，所以至少放大 1.3 倍（DESIGN §8）。
-     */
-    get u() {
-      const G = this.game;
-      return G.unit * (Math.min(G.W, G.H) < 500 ? 1.35 : 1);
-    }
-
-    /** 沙地上某個深度的高度（world.groundY；舊的 world 沒有深度時退回 sandY） */
-    ground(x, dz) {
-      const w = this.game.world;
-      return w.groundY ? w.groundY(x, dz) : w.sandY(x);
-    }
-
-    /** 這隻生物還在海裡嗎（說明牌的目標每一幀會問） */
-    alive(c) {
-      if (!c) return false;
-      switch (c.kind) {
-        case 'larva':
-          return this.larvae.includes(c);
-        case 'crab':
-          return this.crabs.includes(c);
-        case 'shell':
-          return this.spare.includes(c);
-        case 'lantern':
-          return this.lanterns.includes(c);
-        case 'clown':
-          return this.anemones.some((a) => a.fish.includes(c));
-        case 'anemone':
-          return this.anemones.includes(c);
-        case 'turtle':
-          return this.turtles.includes(c);
-        case 'seahorse':
-          return this.seahorses.includes(c);
-        case 'oyster':
-          return this.oysters.includes(c);
-        case 'octopus':
-          return this.octopus === c;
-        case 'bottle':
-          return this.bottles.includes(c);
-        case 'reef':
-          return this.reefs.includes(c);
-        case 'orb':
-          return this.orbs.includes(c);
-        default:
-          return typeof c.anchor === 'function' && !!c.anchor();
-      }
     }
     get eco() {
       return this.game.state.eco;
@@ -2259,12 +2057,12 @@
     update(dt) {
       this.t += dt;
       const G = this.game;
-      const hour = G.world.hourNow ? G.world.hourNow() : new Date().getHours();
+      const hour = new Date().getHours();
       const night = hour >= 18 || hour < 6;
       // 燈籠魚：晚上游上來、白天沉下去。有礁石洞的話白天待在它的陰影裡；有月光石的話晚上繞著它
       const cave = night ? null : this.habitat('cave');
       const moon = night ? this.habitat('moonstone') : null;
-      const u = this.u;
+      const u = G.unit;
       for (const n of Object.keys(this.schools)) {
         const s = this.schools[n];
         let tx;
@@ -2346,32 +2144,21 @@
       for (const a of this.anemones) if (a.hit(x, y)) return a;
       for (const r of this.reefs) {
         const it = r.itemAt(x, y);
-        if (it) return new CoralRef(r, it.entry, this);
+        if (it) return { kind: 'coral', item: it, reef: r };
       }
       for (const s of this.spare) if (s.hit(x, y)) return s;
       return null;
     }
 
-    /**
-     * 某一筆心情長出來的那隻生物：光點引過去、結果說明牌的指示線指過去。
-     * 珊瑚回傳 CoralRef，藍眼淚回傳 TearsRef（都有 anchor()）。
-     */
+    /** 新生出來的那隻，用來把光點引過去 */
     find(entryId) {
       const all = [].concat(this.larvae, this.crabs, this.lanterns, this.turtles, this.seahorses, this.bottles);
       for (const c of all) if (c.entry && c.entry.id === entryId) return c;
       for (const a of this.anemones) for (const f of a.fish) if (f.entry.id === entryId) return f;
-      for (const r of this.reefs) {
-        const it = r.items.find((q) => q.entry.id === entryId);
-        if (it) return new CoralRef(r, it.entry, this);
-      }
-      const e = this.entries.find((q) => q.id === entryId);
-      if (e && e.turn === 'release' && this.tears.byEntry.has(entryId)) return new TearsRef(e, this);
       return null;
     }
   }
 
   Eco.drawShell = drawShell;
-  Eco.CoralRef = CoralRef;
-  Eco.TearsRef = TearsRef;
   MJ.Eco = Eco;
 })((window.MJ = window.MJ || {}));
