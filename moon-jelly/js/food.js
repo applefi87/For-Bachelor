@@ -5,9 +5,9 @@
   const U = MJ.U;
 
   const TYPES = {
-    plankton: { name: '浮游生物', price: 0, desc: '最普通的一餐。點一下水就會撒下去。' },
-    star: { name: '星星糖', price: 12, desc: '甜甜的點心。吃了會很開心。' },
-    dew: { name: '月光露', price: 20, desc: '一滴月光。小水母喝了會長得比較快。' },
+    plankton: { name: '浮游生物', price: 0, desc: '基本的食物。點水面就撒下。' },
+    star: { name: '星星糖', price: 12, desc: '水母吃了，開心值大幅上升。' },
+    dew: { name: '月光露', price: 20, desc: '幼年水母吃了長得比較快；成年的開心值上升。' },
   };
 
   class Food {
@@ -41,7 +41,7 @@
           });
         }
       } else if (type === 'star') {
-        this.items.push({ type, x, y, vy: 20 * u, r: 6 * u, hue: 48, phase: U.rand(U.TAU), rot: 0, life: 60 });
+        this.items.push({ type, x, y, vy: 20 * u, r: 6 * u, hue: 42, phase: U.rand(U.TAU), rot: 0, life: 60 });
       } else if (type === 'dew') {
         this.items.push({ type, x, y, vy: 16 * u, r: 5 * u, hue: 200, phase: U.rand(U.TAU), life: 60 });
       }
@@ -134,19 +134,20 @@
         const fade = Math.min(1, f.life / 3);
         if (f.type === 'plankton') {
           const tw = 0.7 + 0.3 * Math.sin(t * 5 + f.phase);
-          U.drawGlow(ctx, f.x, f.y, f.r * 9, f.hue, 0.9, 0.6, tw * fade);
-          ctx.fillStyle = U.hsla(f.hue, 0.8, 0.85, 0.9 * fade);
+          MJ.glow(ctx, f.x, f.y, f.r * 9, f.hue, 0.9, 0.6, tw * fade);
+          ctx.fillStyle = U.hsla(f.hue, 0.5, 0.85, 0.9 * fade);
           ctx.beginPath();
           ctx.arc(f.x, f.y, f.r * 0.7, 0, U.TAU);
           ctx.fill();
         } else if (f.type === 'star') {
-          U.drawGlow(ctx, f.x, f.y, f.r * 8, 48, 0.95, 0.6, fade);
-          ctx.fillStyle = U.hsla(48, 0.95, 0.75, fade);
+          MJ.glow(ctx, f.x, f.y, f.r * 8, 42, 0.6, 0.7, fade);
+          // 星星糖是「光」的金色（--light #ebcd90）
+          ctx.fillStyle = 'rgba(235,205,144,' + fade.toFixed(3) + ')';
           ctx.beginPath();
           U.starPath(ctx, f.x, f.y, f.r, 5, 0.5, f.rot - Math.PI / 2);
           ctx.fill();
         } else if (f.type === 'dew') {
-          U.drawGlow(ctx, f.x, f.y, f.r * 9, 205, 0.6, 0.75, fade);
+          MJ.glow(ctx, f.x, f.y, f.r * 9, 205, 0.6, 0.75, fade);
           ctx.fillStyle = 'rgba(225,240,255,' + (0.85 * fade).toFixed(3) + ')';
           ctx.beginPath();
           ctx.moveTo(f.x, f.y - f.r * 1.6);
@@ -160,8 +161,8 @@
         if (f.type !== 'worry') continue;
         const pulse = 1 + Math.sin(t * 2 + f.phase) * 0.06;
         ctx.globalCompositeOperation = 'lighter';
-        U.drawGlow(ctx, f.x, f.y, f.r * 5 * pulse, f.hue, 0.85, 0.6, 0.9);
-        ctx.strokeStyle = 'rgba(255,230,180,0.35)';
+        MJ.glow(ctx, f.x, f.y, f.r * 5 * pulse, f.hue, 0.5, 0.66, 0.9);
+        ctx.strokeStyle = 'rgba(235,222,196,0.35)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(f.x, f.y, f.r * pulse, 0, U.TAU);
@@ -169,13 +170,14 @@
         ctx.globalCompositeOperation = 'source-over';
         const shown = f.chars.slice(0, 12);
         const n = shown.length;
-        ctx.font = Math.round(f.r * 0.36) + 'px ' + MJ.FONT;
+        // 繞著的是使用者自己寫的字：手寫體
+        ctx.font = Math.round(f.r * 0.36) + 'px ' + (MJ.FONT_HAND || MJ.FONT);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         for (let i = 0; i < n; i++) {
           const a = (i / n) * U.TAU + t * 0.4 + f.phase;
           const rr = f.r * 0.68;
-          ctx.fillStyle = 'rgba(255,244,220,0.85)';
+          ctx.fillStyle = 'rgba(234,232,226,0.88)';
           ctx.fillText(shown[i], f.x + Math.cos(a) * rr, f.y + Math.sin(a) * rr);
         }
       }
