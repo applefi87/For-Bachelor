@@ -45,8 +45,9 @@ if (fragment) {
     body + '\n<script>\n' + js + '\n' + boot + '\n</script>\n';
 } else {
   result = html
-    .replace(/(<link rel="stylesheet" href="css\/[^"]+">\s*)+/, '<style>\n' + css + '\n</style>\n')
-    .replace(/(<script src="[^"]+"><\/script>\s*)+<script>MJ\.Game\.init\(\);<\/script>/, '<script>\n' + js + '\n' + boot + '\n</script>');
+    // 用函式當替換值：程式裡的 `$1`、`$&` 這類字串才不會被當成正規表示式的反向參照
+    .replace(/(<link rel="stylesheet" href="css\/[^"]+">\s*)+/, () => '<style>\n' + css + '\n</style>\n')
+    .replace(/(<script src="[^"]+"><\/script>\s*)+<script>MJ\.Game\.init\(\);<\/script>/, () => '<script>\n' + js + '\n' + boot + '\n</script>');
 }
 
 fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
