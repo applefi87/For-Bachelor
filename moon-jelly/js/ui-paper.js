@@ -121,7 +121,7 @@
   UI.welcomeModal = () => {
     UI.showModal((card, close) => {
       card.innerHTML =
-        '<h2 class="m-title">歡迎來到海月水母館</h2>' +
+        '<h2 class="m-title">入館</h2>' +
         '<p class="m-text">這裡有三隻水母，和一個快要孵化的水螅體。從今天開始，牠們就交給你了。</p>' +
         '<ul class="how"><li><b>點水</b>撒下浮游生物</li><li><b>按住水母滑動</b>摸摸牠</li><li><b>點水母</b>看牠的名片</li><li><b>按「心情」</b>替感覺取名字，看它長成什麼生物</li></ul>' +
         '<p class="m-foot">不用急。水母們在這裡漂了很久，也會一直在這裡。</p>' +
