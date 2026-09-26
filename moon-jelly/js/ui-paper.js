@@ -183,7 +183,14 @@
           })
         );
       },
-      { cls: 'wide', onClose: () => after && setTimeout(after, 60) }
+      {
+        cls: 'wide',
+        onClose: () => {
+          if (after) setTimeout(after, 60);
+          // 你不在的時候出生的水母：卡片之後，牌子一隻一隻指給你看（最多兩隻）
+          if (o.offline) for (const j of o.offline.born.slice(-2)) UI.callout.show(j, { auto: true, status: '你不在時出生' });
+        },
+      }
     );
   };
 
@@ -237,6 +244,9 @@
     return html;
   };
 
+  /** 出生、撈到：大卡照舊；關上之後，牌子用細線指著那隻水母 */
+  const plateAfter = (j, status) => ({ onClose: () => UI.callout.show(j, { auto: true, status }) });
+
   UI.birthModal = (j, found) => {
     UI.showModal((card, close) => {
       card.innerHTML =
@@ -247,10 +257,13 @@
         close();
         setTimeout(async () => {
           const name = await UI.prompt({ title: '幫牠取個名字', value: j.name, max: 12 });
-          if (name) Game.rename(j.id, name);
+          if (name) {
+            Game.rename(j.id, name);
+            UI.callout.refresh();
+          }
         }, 320);
       });
-    });
+    }, plateAfter(j, '剛出生'));
   };
 
   UI.catchModal = (j, found) => {
@@ -259,7 +272,7 @@
         newbornCard('撈到了！', '一隻從外面的海來的水母。' + (j.adult ? '已經是大人了。' : '還沒完全長大。'), j, found) +
         '<div class="btn-row center"><button class="btn">歡迎你</button></div>';
       card.querySelector('.btn').addEventListener('click', () => close());
-    });
+    }, plateAfter(j, '剛撈到'));
   };
 
   /** 一份心情的小卡：字、時間、浪的變化 */
@@ -343,7 +356,8 @@
     g.fill();
   };
 
-  UI.pearlModal = (p) => {
+  /** after：珍珠剛結成時，關上之後讓牌子指到那顆珍珠貝 */
+  UI.pearlModal = (p, after) => {
     const fam = F.FAMILIES[p.fam];
     UI.showModal(
       (card, close) => {
@@ -356,7 +370,7 @@
         UI.drawPearl($('pearlBig'), p.layers, 160);
         card.querySelector('.btn').addEventListener('click', () => close());
       },
-      { cls: 'paper' }
+      { cls: 'paper', onClose: after }
     );
   };
 

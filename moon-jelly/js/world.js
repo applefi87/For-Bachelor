@@ -49,6 +49,21 @@
     },
   };
 
+  /** 兩個 #rrggbb 之間取 k（0..1） */
+  const mixHex = (a, b, k) => {
+    const pa = parseInt(a.slice(1), 16);
+    const pb = parseInt(b.slice(1), 16);
+    let out = '#';
+    for (let i = 16; i >= 0; i -= 8) {
+      const va = (pa >> i) & 255;
+      const vb = (pb >> i) & 255;
+      out += Math.round(va + (vb - va) * k).toString(16).padStart(2, '0');
+    }
+    return out;
+  };
+
+  const dayNight = () => (MJ.Day ? MJ.Day.night : 0);
+
   class World {
     constructor() {
       this.themeId = 'night';
@@ -64,6 +79,7 @@
       this.dim = 0; // 晚安模式時變暗
       this.current = 0;
       this.bg = null;
+      this.bgNight = null; // 夜裡的背景：頂端往第二段靠，最深處不變（docs/features/daynight.md）
       this.prevBg = null;
       this.fade = 1;
     }
@@ -75,10 +91,11 @@
       this.theme = THEMES[id];
       if (this.W) {
         if (!instant && this.bg) {
-          this.prevBg = this.bg;
+          this.prevBg = this.currentBg();
           this.fade = 0;
         }
-        this.bg = this.renderBg();
+        this.bg = this.renderBg(0);
+        this.bgNight = this.renderBg(1);
         this.buildWeeds();
         this.buildSnow();
       }
@@ -91,7 +108,8 @@
       this.unit = unit;
       // 海床要高過底部選單，住在沙地上的生物才不會被擋住
       this.floorY = H - Math.max(U.clamp(H * 0.11, 58, 112), 120);
-      this.bg = this.renderBg();
+      this.bg = this.renderBg(0);
+      this.bgNight = this.renderBg(1);
       this.prevBg = null;
       this.fade = 1;
       this.buildWeeds();
@@ -106,7 +124,23 @@
       return this.floorY + Math.sin(x * 0.0042 + 1.3) * 5 + Math.sin(x * 0.011 + 0.4) * 2.5;
     }
 
-    renderBg() {
+    /** 換主題時要淡出的那張：白天、夜裡或兩者混合 */
+    currentBg() {
+      const nk = dayNight();
+      if (nk < 0.01 || !this.bgNight) return this.bg;
+      if (nk > 0.99) return this.bgNight;
+      const c = document.createElement('canvas');
+      c.width = this.bg.width;
+      c.height = this.bg.height;
+      const g = c.getContext('2d');
+      g.drawImage(this.bg, 0, 0);
+      g.globalAlpha = nk;
+      g.drawImage(this.bgNight, 0, 0);
+      return c;
+    }
+
+    /** night = 1：夜裡的版本，只有頂端變（往第二段靠 60%），最深處一樣 */
+    renderBg(night = 0) {
       const { W, H, dpr } = this;
       const th = this.theme;
       const c = document.createElement('canvas');
@@ -116,8 +150,8 @@
       g.scale(dpr, dpr);
 
       const grd = g.createLinearGradient(0, 0, 0, H);
-      grd.addColorStop(0, th.grad[0]);
-      grd.addColorStop(0.35, th.grad[1]);
+      grd.addColorStop(0, night ? mixHex(th.grad[0], th.grad[1], 0.6 * night) : th.grad[0]);
+      grd.addColorStop(0.35, night ? mixHex(th.grad[1], th.grad[2], 0.25 * night) : th.grad[1]);
       grd.addColorStop(0.7, th.grad[2]);
       grd.addColorStop(1, th.grad[3]);
       g.fillStyle = grd;
@@ -238,6 +272,8 @@
           r: U.rand(0.5, 1.6),
           tw: U.rand(U.TAU),
           bio: Math.random() < 0.14,
+          dim: Math.random() < 0.4, // 夜裡淡掉的那四成
+          per: U.rand(20, 40), // 夜裡發光的週期（秒）
         });
       }
     }
@@ -300,8 +336,9 @@
 
       // 海雪
       const cur = this.current * 6;
+      const snowSpeed = 1 - 0.3 * dayNight();
       for (const s of this.snow) {
-        s.y += (3 + 7 * s.z) * dt * this.unit;
+        s.y += (3 + 7 * s.z) * dt * this.unit * snowSpeed;
         s.x += (Math.sin(t * 0.25 + s.tw) * 2.5 + cur) * s.z * dt;
         if (s.y > H + 4) {
           s.y = -4;
@@ -370,12 +407,19 @@
     drawBack(ctx) {
       const { W, H, t } = this;
       const th = this.theme;
-      if (this.prevBg && this.fade < 1) {
-        ctx.drawImage(this.prevBg, 0, 0, W, H);
-        ctx.globalAlpha = this.fade;
+      const night = dayNight();
+      const sun = 1 - night;
+      const crossing = this.prevBg && this.fade < 1;
+      if (crossing) ctx.drawImage(this.prevBg, 0, 0, W, H);
+      if (night < 0.99 || !this.bgNight) {
+        ctx.globalAlpha = crossing ? this.fade : 1;
         ctx.drawImage(this.bg, 0, 0, W, H);
-        ctx.globalAlpha = 1;
-      } else ctx.drawImage(this.bg, 0, 0, W, H);
+      }
+      if (night > 0.01 && this.bgNight) {
+        ctx.globalAlpha = (crossing ? this.fade : 1) * night;
+        ctx.drawImage(this.bgNight, 0, 0, W, H);
+      }
+      ctx.globalAlpha = 1;
 
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -383,11 +427,10 @@
       if (th.fx === 'aurora') this.drawAurora(ctx);
       if (th.fx === 'moon') this.drawMoon(ctx);
 
-      // 光束
-      if (th.rayA > 0) {
+      // 光束：從上面來的光，夜裡沒有（不是變暗，是關掉）
+      if (th.rayA > 0 && sun > 0.01) {
         const [r, g, b] = th.ray;
-        const hour = new Date().getHours();
-        const dayK = hour >= 7 && hour < 18 ? 1.25 : 0.85;
+        const dayK = 1.25 * sun;
         for (const ray of this.rays) {
           const a = th.rayA * dayK * (0.55 + 0.45 * Math.sin(t * ray.speed + ray.phase)) * (1 - this.dim);
           if (a < 0.004) continue;
@@ -409,14 +452,14 @@
         }
       }
 
-      // 水面的光
+      // 水面的光：夜裡只剩一點點
       const [sr, sg, sb] = th.ray;
       const sgrd = ctx.createLinearGradient(0, 0, 0, 70);
-      sgrd.addColorStop(0, 'rgba(' + sr + ',' + sg + ',' + sb + ',' + (0.13 * (1 - this.dim)).toFixed(3) + ')');
+      sgrd.addColorStop(0, 'rgba(' + sr + ',' + sg + ',' + sb + ',' + ((0.02 + 0.11 * sun) * (1 - this.dim)).toFixed(3) + ')');
       sgrd.addColorStop(1, 'rgba(' + sr + ',' + sg + ',' + sb + ',0)');
       ctx.fillStyle = sgrd;
       ctx.fillRect(0, 0, W, 70);
-      ctx.strokeStyle = 'rgba(' + sr + ',' + sg + ',' + sb + ',' + (0.12 * (1 - this.dim)).toFixed(3) + ')';
+      ctx.strokeStyle = 'rgba(' + sr + ',' + sg + ',' + sb + ',' + ((0.03 + 0.09 * sun) * (1 - this.dim)).toFixed(3) + ')';
       ctx.lineWidth = 1;
       for (let k = 0; k < 2; k++) {
         ctx.beginPath();
@@ -428,12 +471,12 @@
         ctx.stroke();
       }
 
-      // 海底的焦散光斑
+      // 海底的焦散光斑：是太陽落到沙地上的光，夜裡沒有
       const [lr, lg, lb] = th.sandLine;
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 14 && sun > 0.01; i++) {
         const x = ((i / 14) * W + Math.sin(t * 0.13 + i * 1.7) * 60 + W) % W;
         const y = this.sandY(x) + 6 + (i % 3) * 7;
-        const a = 0.035 + 0.03 * Math.sin(t * 0.7 + i * 2.1);
+        const a = (0.035 + 0.03 * Math.sin(t * 0.7 + i * 2.1)) * sun;
         if (a <= 0) continue;
         ctx.fillStyle = 'rgba(' + lr + ',' + lg + ',' + lb + ',' + a.toFixed(3) + ')';
         ctx.beginPath();
@@ -442,16 +485,19 @@
       }
       ctx.restore();
 
-      // 海雪
+      // 海雪：夜裡少四成、慢一點；一小部分是夜光藻，只在夜裡（或無光深淵）每 20–40 秒亮一下
       const [nr, ng, nb] = th.snow;
+      const abyss = th.fx === 'abyss';
       for (const s of this.snow) {
         const tw = 0.6 + 0.4 * Math.sin(this.t * 1.3 + s.tw);
-        const a = (0.1 + 0.35 * s.z) * tw;
-        if (th.fx === 'abyss' && s.bio) {
-          const flash = Math.max(0, Math.sin(this.t * 0.8 + s.tw * 3)) ** 8;
+        let a = (0.1 + 0.35 * s.z) * tw;
+        if (s.dim) a *= sun;
+        if (s.bio && (abyss || night > 0.05)) {
+          const flash = abyss ? Math.max(0, Math.sin(this.t * 0.8 + s.tw * 3)) ** 8 : Math.max(0, Math.sin((this.t * U.TAU) / s.per + s.tw * 3)) ** 40 * 0.5 * night;
           if (flash > 0.05) {
             ctx.globalCompositeOperation = 'lighter';
-            U.drawGlow(ctx, s.x, s.y, 16 * s.z + 6, 195, 0.9, 0.6, flash);
+            if (abyss) U.drawGlow(ctx, s.x, s.y, 16 * s.z + 6, 195, 0.9, 0.6, flash);
+            else U.drawGlow(ctx, s.x, s.y, (6 + 4 * s.z) * this.unit, 195, 0.6, 0.7, flash);
             ctx.globalCompositeOperation = 'source-over';
           }
         }

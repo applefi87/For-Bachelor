@@ -90,26 +90,7 @@
   }
 }
 
-/* 名片 */
-
-.card-hero { display: grid; grid-template-columns: 168px 1fr; gap: 14px; align-items: center; }
-
-.card-portrait {
-  width: 168px;
-  height: 168px;
-  border-radius: 20px;
-  background: radial-gradient(circle at 50% 40%, rgba(40, 90, 120, 0.35), rgba(4, 14, 24, 0.6) 70%);
-  border: 1px solid var(--line);
-}
-
-.card-id { display: grid; gap: 8px; min-width: 0; }
-
-.rarity { font-size: 14px; color: var(--mist); }
-
-@media (max-width: 420px) {
-  .card-hero { grid-template-columns: 132px 1fr; }
-  .card-portrait { width: 132px; height: 132px; }
-}
+/* 名片的數值條（說明牌也用） */
 
 .meters { display: grid; gap: 8px; }
 

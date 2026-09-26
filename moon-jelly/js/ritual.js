@@ -590,10 +590,13 @@
     const pos = F.isPositive(d.fam);
     const i1 = d.i1 == null ? d.i0 : d.i1;
     body.innerHTML =
-      '<h2 class="r-title" id="ritualTitle">現在呢？</h2>' +
+      '<h2 class="r-title" id="ritualTitle">現在大概在哪裡？</h2>' +
       '<p class="r-sub">' + (pos ? '剛才這份感覺是 ' + d.i0 + '。現在它有多亮？' : '剛才是 ' + d.i0 + '。現在它有多強？') + '</p>' +
       '<div class="intensity"><div class="i-head"><label for="rI1">' + (pos ? '有多亮？' : '有多強？') + '</label><b id="rIVal">' + i1 + '</b></div>' +
-      '<input type="range" id="rI1" min="0" max="10" step="1" value="' + i1 + '">' +
+      // 滑桿上一條淡淡的刻度，標出剛才的位置（滑桿和浪都照原本的）
+      '<div class="i-track"><span class="i-was" style="--p:' + d.i0 / 10 + '" aria-hidden="true"><i>剛才</i></span>' +
+      '<input type="range" id="rI1" min="0" max="10" step="1" value="' + i1 + '" aria-describedby="rIWas"></div>' +
+      '<span class="sr-only" id="rIWas">剛才是 ' + d.i0 + '</span>' +
       '<div class="i-scale"><span>一點點</span><span>快滿出來了</span></div>' +
       '<canvas class="wave" id="rWave" aria-hidden="true"></canvas></div>' +
       '<p class="r-note">沒有變也沒關係。這只是讓你看看它現在的樣子。</p>' +

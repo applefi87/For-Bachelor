@@ -2057,8 +2057,8 @@
     update(dt) {
       this.t += dt;
       const G = this.game;
-      const hour = new Date().getHours();
-      const night = hour >= 18 || hour < 6;
+      // 時段從 MJ.Day 拿（太陽降到一半以下就算晚上），不自己看時鐘
+      const night = MJ.Day ? MJ.Day.sun < 0.5 : false;
       // 燈籠魚：晚上游上來、白天沉下去。有礁石洞的話白天待在它的陰影裡；有月光石的話晚上繞著它
       const cave = night ? null : this.habitat('cave');
       const moon = night ? this.habitat('moonstone') : null;

@@ -151,7 +151,9 @@
     pickWanderTarget() {
       const env = this.env;
       const floor = env.world.floorY;
-      const top = env.H * 0.1 + this.bellH;
+      // 夜裡整群往下沉一些（海月水母真的有日夜垂直遷徙），白天回到中上
+      const night = MJ.Day ? MJ.Day.night : 0;
+      const top = env.H * (0.1 + 0.13 * night) + this.bellH;
       let x = U.rand(env.W * 0.08, env.W * 0.92);
       let y = U.rand(top, floor - this.bellH - this.bellW * 1.2);
       if (env.world.rain) {
@@ -245,6 +247,8 @@
       } else if (below) sink = 12;
       if (mode === 'food' || mode === 'mate' || mode === 'pet' || mode === 'leave') freq *= 1.25;
       if (env.mode === 'sleep') freq *= 0.6;
+      // 夜裡脈動慢一點：大家在休息
+      if (MJ.Day) freq *= 1 - 0.15 * MJ.Day.night;
 
       if (breathing) {
         const bc = env.breath.c;
@@ -324,7 +328,8 @@
 
     onPulse(env) {
       const g = this.genes;
-      if (env.sing && this.fade > 0.5 && Math.random() < (this.adult ? 0.3 : 0.16)) {
+      const singK = MJ.Day ? 1 - 0.5 * MJ.Day.night : 1;
+      if (env.sing && this.fade > 0.5 && Math.random() < (this.adult ? 0.3 : 0.16) * singK) {
         MJ.Audio.sing(G.noteOf(g), (0.07 + 0.08 * g.glow) * (this.visitor ? 0.6 : 1), U.clamp((this.x / env.W) * 2 - 1, -0.8, 0.8));
       }
       if (g.special === 'moonlight' && env.fx) {
@@ -457,7 +462,8 @@
       const hue = this.colorAt(t);
       const hue2 = g.special === 'rainbow' ? U.wrapHue(g.hue2 + t * 40 + 90) : g.hue2;
       const sat = g.sat;
-      const themeGlow = env.world && env.world.theme ? env.world.theme.glow || 1 : 1;
+      // 夜裡光暈只微降：光束關掉之後，水母靠對比反而更像一盞燈
+      const themeGlow = (env.world && env.world.theme ? env.world.theme.glow || 1 : 1) * (MJ.Day ? 1 - 0.1 * MJ.Day.night : 1);
 
       ctx.save();
       ctx.globalAlpha = alpha;

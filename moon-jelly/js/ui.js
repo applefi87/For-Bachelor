@@ -24,6 +24,7 @@
     moon: '<path d="M19.5 14.5A7.8 7.8 0 1 1 9.5 4.5a6.2 6.2 0 0 0 10 10z"/>',
     close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
     back: '<path d="M14.5 5.5L8 12l6.5 6.5"/>',
+    next: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>',
     jelly: '<path d="M5 12a7 7 0 0 1 14 0z"/><path d="M8.5 12c0 3-1 5-1.2 8M12 12v8.5M15.5 12c0 3 1 5 1.2 8"/>',
     trophy: '<path d="M12 3.8l2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z"/>',
     diary: '<rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/><circle cx="9" cy="14.5" r="1"/><circle cx="14" cy="14.5" r="1"/>',
@@ -145,6 +146,7 @@
       if (UI.el.modal.classList.contains('open')) {
         if (UI.modalDismiss) UI.closeModal();
       } else if (UI.el.feedPop.classList.contains('open')) UI.closePopovers();
+      else if (UI.callout.open) UI.callout.close();
       else if (UI.sheetKind) UI.closeSheet();
       else if (Game.mode === 'breath') Game.stopBreath();
       else if (Game.mode === 'sleep') Game.stopSleep();
@@ -242,6 +244,7 @@
     if (UI.slowTick <= 0) {
       UI.slowTick = 0.4;
       UI.refreshBound();
+      UI.callout.pump();
     }
     UI.deferTick = (UI.deferTick || 0) - dt;
     if (UI.deferred.length && UI.deferTick <= 0 && !UI.isQuiet() && !UI.modalOpenNow) {
@@ -261,13 +264,14 @@
   };
   UI.isQuiet = () => Date.now() < UI.quietUntil || !!(MJ.Ritual && MJ.Ritual.open);
 
-  UI.toast = (text, kind = 'soft', sub = null) => {
+  /** then：這則通知真的出現、讀完淡掉之後才做的事（例如讓那隻生物的說明牌出來） */
+  UI.toast = (text, kind = 'soft', sub = null, then = null) => {
     if (UI.pendingToasts) {
-      UI.pendingToasts.push([text, kind, sub]);
+      UI.pendingToasts.push([text, kind, sub, then]);
       return;
     }
     if ((kind === 'achievement' || kind === 'discover') && UI.isQuiet()) {
-      UI.deferred.push([text, kind, sub]);
+      UI.deferred.push([text, kind, sub, then]);
       return;
     }
     const box = UI.el.toasts;
@@ -280,6 +284,7 @@
     setTimeout(() => {
       el.classList.add('out');
       setTimeout(() => el.remove(), 450);
+      if (then) then();
     }, life);
   };
 
@@ -298,7 +303,11 @@
   UI.toggleFeed = () => {
     const pop = UI.el.feedPop;
     if (pop.classList.contains('open')) return UI.closePopovers();
+    UI.callout.close();
     UI.updateFood();
+    // 對齊「餵食」按鈕的左邊（桌面的選單在中間，手機是整排）
+    const r = UI.el.dock.getBoundingClientRect();
+    pop.style.left = Math.round(Math.max(16, Math.min(r.left, window.innerWidth - pop.offsetWidth - 16))) + 'px';
     pop.classList.add('open');
     pop.setAttribute('aria-hidden', 'false');
   };
@@ -315,7 +324,6 @@
     const inv = Game.state.inventory;
     const types = MJ.Food.TYPES;
     UI.el.feedPop.innerHTML =
-      '<div class="pop-title">要餵什麼？</div>' +
       Object.keys(types)
         .map((k) => {
           const n = k === 'plankton' ? '∞' : '×' + (inv[k] || 0);
@@ -340,6 +348,7 @@
   UI.openSheet = (kind, arg, opts = {}) => {
     const R = RENDER[kind];
     if (!R) return;
+    UI.callout.close();
     UI.cardLive = null;
     UI.bound = null;
     UI.sheetKind = kind;
@@ -356,14 +365,14 @@
       A.open();
     }
     sh.setAttribute('aria-label', title);
-    Game.selectedId = kind === 'jelly' && arg ? arg.id : null;
   };
 
   UI.closeSheet = () => {
     UI.sheetKind = null;
-    UI.cardLive = null;
-    UI.bound = null;
-    Game.selectedId = null;
+    if (!UI.callout.open) {
+      UI.cardLive = null;
+      UI.bound = null;
+    }
     UI.el.sheet.classList.remove('open');
   };
 
@@ -375,18 +384,20 @@
     }
   };
 
+  /** 點水母：牠旁邊出現說明牌（callout.js） */
   UI.openJelly = (j) => {
-    UI.openSheet('jelly', j);
+    UI.callout.show(j);
     Game.tut('card');
   };
 
-  /** 每 0.4 秒更新抽屜裡會變動的數字 */
+  /** 每 0.4 秒更新說明牌（或抽屜）裡會變動的數字 */
   UI.refreshBound = () => {
     const b = UI.bound;
     if (b && b.jelly) {
       const j = b.jelly;
       if (!Game.jellies.includes(j) || j.leaving) {
-        UI.closeSheet();
+        if (b.co) UI.callout.close();
+        else UI.closeSheet();
         return;
       }
       const set = (k, v) => {
@@ -405,7 +416,8 @@
         if (b.els.mateBtn) b.els.mateBtn.disabled = !br.ok;
       }
       if (b.wasAdult !== j.adult || b.visitor !== j.visitor) {
-        UI.rerender();
+        if (b.co) UI.callout.refresh();
+        else UI.rerender();
         return;
       }
     }
