@@ -18,10 +18,10 @@
 
 .hud > * { pointer-events: auto; }
 
-.brand { display: grid; gap: 8px; justify-items: start; }
+.brand { display: grid; gap: 7px; justify-items: start; }
 
 .logo {
-  font-size: 26px;
+  font-size: 23px;
   font-weight: 700;
   letter-spacing: 0.22em;
   line-height: 1;
@@ -35,7 +35,7 @@
   font-family: var(--font-en);
   font-style: italic;
   font-weight: 400;
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 0.06em;
   color: var(--mist);
   text-shadow: none;
@@ -44,8 +44,8 @@
 .light {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 13px 5px 10px;
+  gap: 6px;
+  padding: 4px 11px 4px 9px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--glass);
@@ -54,8 +54,8 @@
 }
 
 .light-dot {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: radial-gradient(circle at 40% 35%, #fff8dc, var(--glow) 55%, #d9a94a);
   box-shadow: 0 0 10px 2px rgba(245, 218, 146, 0.55);
@@ -65,11 +65,11 @@
 
 .light-dot.sm { width: 8px; height: 8px; box-shadow: 0 0 6px 1px rgba(245, 218, 146, 0.5); }
 
-.light-num { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff5d6; }
+.light-num { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff5d6; }
 
-.light-unit { font-size: 13px; color: var(--glow); }
+.light-unit { font-size: 12px; color: var(--glow); }
 
-.light-rate { font-size: 12px; color: var(--mist); font-variant-numeric: tabular-nums; margin-left: 2px; }
+.light-rate { font-size: 11px; color: var(--mist); font-variant-numeric: tabular-nums; margin-left: 2px; }
 
 .hud-actions { display: flex; gap: 8px; }
 
@@ -435,7 +435,7 @@ body.mode-breath .dock, body.mode-sleep .dock, body.mode-photo .dock, body.mode-
 .intro-note { margin: 4px 0 0; font-size: 12.5px; color: var(--faint); letter-spacing: 0.1em; }
 
 @media (max-width: 480px) {
-  .logo { font-size: 22px; }
+  .logo { font-size: 20px; }
   .light-rate { display: none; }
   .dock button { font-size: 12px; }
 }
