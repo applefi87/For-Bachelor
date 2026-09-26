@@ -290,7 +290,6 @@
     const b = UI.el.soundBtn;
     b.textContent = muted ? '聲音 關' : '聲音 開';
     b.setAttribute('aria-pressed', String(!muted));
-    b.setAttribute('aria-label', muted ? '聲音：關。按一下打開' : '聲音：開。按一下關掉');
   };
 
   UI.frame = (dt) => {
